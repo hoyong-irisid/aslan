@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "triggers": ["contact support", "support email", "technical support"],
+      "answer": "You can reach our technical support team using the contact options on irisid.com, or ask me a specific product question."
+    },
+    {
+      "triggers": ["where are you", "headquarters", "office location"],
+      "answer": "IRIS ID is a global identity solutions provider. Please see the Contact page on irisid.com for office and regional details."
+    },
+    {
+      "triggers": ["demo", "request a demo"],
+      "answer": "We’d be happy to arrange a demo. Please contact our sales team through irisid.com with your region and use case."
+    }
+  ]
+}

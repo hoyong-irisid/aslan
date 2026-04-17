@@ -1,0 +1,33 @@
+{
+  "regions": {
+    "middle_east": {
+      "label": "Middle East Sales",
+      "countries": ["AE", "SA", "QA", "KW", "BH", "OM"],
+      "sales": {
+        "name": "Example Rep",
+        "email": "me.sales@irisid.com",
+        "phone": "+971-000-0000"
+      },
+      "support": {
+        "name": "Tech Support",
+        "email": "support@irisid.com",
+        "phone": "+1-000-0000"
+      }
+    },
+    "east_asia": {
+      "label": "East Asia Sales",
+      "countries": ["ID", "SG", "MY", "TH", "VN", "PH"],
+      "sales": {
+        "name": "Example Rep",
+        "email": "ea.sales@irisid.com",
+        "phone": "+65-000-0000"
+      },
+      "support": {
+        "name": "Tech Support",
+        "email": "support@irisid.com",
+        "phone": "+1-000-0000"
+      }
+    }
+  },
+  "default_region": "middle_east"
+}
