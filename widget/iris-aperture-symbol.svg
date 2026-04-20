@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-hidden="true">
+  <!-- Six 60° wedges (0 = top); blade index 1 = accent red -->
+  <g stroke="#ffffff" stroke-width="1.25" stroke-linejoin="round">
+    <!-- k=0 gray: -90° .. -30° -->
+    <path fill="#94a3b8" d="M50 38 L50 6 A44 44 0 0 1 88.1 28 L60.4 43.6 A12 12 0 0 0 50 38 Z"/>
+    <!-- k=1 red: -30° .. 30° -->
+    <path fill="#dc2626" d="M60.4 43.6 L88.1 28 A44 44 0 0 1 88.1 72 L60.4 56.4 A12 12 0 0 0 60.4 43.6 Z"/>
+    <!-- k=2 gray: 30° .. 90° -->
+    <path fill="#94a3b8" d="M60.4 56.4 L88.1 72 A44 44 0 0 1 50 94 L50 62 A12 12 0 0 0 60.4 56.4 Z"/>
+    <!-- k=3 gray: 90° .. 150° -->
+    <path fill="#94a3b8" d="M50 62 L50 94 A44 44 0 0 1 11.9 72 L39.6 56.4 A12 12 0 0 0 50 62 Z"/>
+    <!-- k=4 gray: 150° .. 210° -->
+    <path fill="#94a3b8" d="M39.6 56.4 L11.9 72 A44 44 0 0 1 11.9 28 L39.6 43.6 A12 12 0 0 0 39.6 56.4 Z"/>
+    <!-- k=5 gray: 210° .. 270° -->
+    <path fill="#94a3b8" d="M39.6 43.6 L11.9 28 A44 44 0 0 1 50 6 L50 38 A12 12 0 0 0 39.6 43.6 Z"/>
+  </g>
+  <circle cx="50" cy="50" r="9" fill="#f8fafc"/>
+</svg>

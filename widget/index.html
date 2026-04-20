@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASLAN — IRIS ID Chat (local)</title>
+  <style>
+    :root {
+      --iris-navy: #0f172a;
+      --iris-accent: #0ea5e9;
+      --iris-muted: #64748b;
+      --surface: #ffffff;
+      --bubble-user: #e0f2fe;
+      --bubble-bot: #f1f5f9;
+      --shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+      --radius: 14px;
+      --fab-size: 58px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #e2e8f0 0%, #f8fafc 45%, #e0f2fe 100%);
+      color: var(--iris-navy);
+    }
+    body.aslan-chat-open .demo-page {
+      opacity: 0.35;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .demo-page {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+    .demo-page h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
+    .demo-page p { color: var(--iris-muted); line-height: 1.6; margin: 0; }
+
+    /* Launcher */
+    .aslan-fab {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      width: var(--fab-size);
+      height: var(--fab-size);
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(145deg, #0369a1, var(--iris-accent));
+      color: #fff;
+      box-shadow: var(--shadow);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 0;
+      z-index: 9998;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .aslan-fab:hover { transform: scale(1.05); }
+    .aslan-fab-logo {
+      display: block;
+      height: 24px;
+      width: auto;
+      max-width: min(44px, calc(var(--fab-size) - 18px));
+      object-fit: contain;
+      object-position: center;
+      pointer-events: none;
+      flex: 0 0 auto;
+    }
+
+    /* Panel */
+    .aslan-panel {
+      position: fixed;
+      right: 22px;
+      bottom: calc(22px + var(--fab-size) + 14px);
+      width: min(400px, calc(100vw - 32px));
+      height: min(520px, calc(100vh - 120px));
+      max-height: calc(100vh - 120px);
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transform: translateY(12px) scale(0.98);
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+    .aslan-panel.open {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+    .aslan-header {
+      padding: 14px 16px;
+      background: var(--iris-navy);
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .aslan-header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .aslan-header-symbol {
+      width: 34px;
+      height: 34px;
+      flex-shrink: 0;
+      display: block;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .aslan-header strong { font-size: 0.95rem; }
+    .aslan-header span { font-size: 0.72rem; opacity: 0.85; }
+    .aslan-close {
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.35rem;
+      line-height: 1;
+      padding: 4px 8px;
+      border-radius: 8px;
+    }
+    .aslan-close:hover { background: rgba(255,255,255,0.12); }
+
+    .aslan-messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #f8fafc;
+    }
+    .msg {
+      max-width: 92%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--bubble-user);
+      color: var(--iris-navy);
+    }
+    .msg.bot {
+      align-self: flex-start;
+      background: var(--bubble-bot);
+      color: var(--iris-navy);
+    }
+    .msg.error { background: #fee2e2; color: #991b1b; }
+    .msg.typing {
+      align-self: flex-start;
+      background: var(--bubble-bot);
+      color: var(--iris-muted);
+      min-width: 54px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 10px 12px;
+    }
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #64748b;
+      opacity: 0.35;
+      animation: aslan-dot-pulse 1.2s infinite ease-in-out;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes aslan-dot-pulse {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+      40% { transform: translateY(-2px); opacity: 0.95; }
+    }
+
+    .aslan-footer {
+      padding: 12px 14px 14px;
+      background: var(--surface);
+      border-top: 1px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .chip {
+      font-size: 0.72rem;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: var(--iris-navy);
+      cursor: pointer;
+    }
+    .chip:hover { border-color: var(--iris-accent); color: #0369a1; }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .aslan-input {
+      flex: 1;
+      min-height: 44px;
+      max-height: 120px;
+      resize: none;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      font: inherit;
+    }
+    .aslan-input:focus {
+      outline: 2px solid var(--iris-accent);
+      outline-offset: 0;
+      border-color: transparent;
+    }
+    .aslan-mic {
+      height: 44px;
+      width: 44px;
+      padding: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--iris-navy);
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .aslan-mic:hover { border-color: var(--iris-accent); color: #0369a1; }
+    .aslan-mic svg { width: 22px; height: 22px; display: block; }
+    .aslan-mic.listening {
+      background: #fef2f2;
+      border-color: #f87171;
+      color: #b91c1c;
+      animation: aslan-mic-pulse 1.1s ease-in-out infinite;
+    }
+    .aslan-mic:disabled { opacity: 0.5; cursor: not-allowed; }
+    @keyframes aslan-mic-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.72; }
+    }
+    .aslan-send {
+      height: 44px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 10px;
+      background: var(--iris-navy);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .aslan-send:disabled { opacity: 0.55; cursor: not-allowed; }
+    .aslan-hint {
+      font-size: 0.58rem;
+      color: var(--iris-muted);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-page">
+    <p>
+      <img src="symbol-irisid-dark-color.png" width="72" height="72" alt="" style="display:block" />
+    </p>
+    <h1 style="margin-top:20px">Iris ID AI Chatbot</h1>
+    <p style="margin-top:10px">
+      ASLAN local demo — use the chat button (bottom-right).
+    </p>
+  </div>
+
+  <button type="button" class="aslan-fab" id="aslanFab" aria-label="Open chat">
+    <img src="symbol-irisid-light.png" width="40" height="auto"
+    />
+  </button>
+
+  <div class="aslan-panel" id="aslanPanel" role="dialog" aria-label="Chat">
+    <div class="aslan-header">
+      <div class="aslan-header-brand">
+        <img
+          src="symbol-irisid-light-color.png" width="35" height="auto"
+        />
+        <div>
+          <strong>Iris ID Assistant</strong><br />
+          <span>Local · ASLAN</span>
+        </div>
+      </div>
+      <button type="button" class="aslan-close" id="aslanClose" aria-label="Close chat">×</button>
+    </div>
+    <div class="aslan-messages" id="aslanMessages"></div>
+    <div class="aslan-footer">
+      <div class="chips" id="aslanChips"></div>
+      <div class="row">
+        <textarea class="aslan-input" id="aslanInput" rows="1" placeholder="Message…"></textarea>
+        <button type="button" class="aslan-mic" id="aslanMic" aria-label="Voice input" aria-pressed="false" title="Voice input (browser)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+        </button>
+        <button type="button" class="aslan-send" id="aslanSend">Send</button>
+      </div>
+      <div class="aslan-hint">Powered by your local <code>/chat</code> API. Voice uses your browser (HTTPS or localhost).</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API_BASE = ""; // same origin when served from FastAPI /widget/
+
+      var fab = document.getElementById("aslanFab");
+      var panel = document.getElementById("aslanPanel");
+      var closeBtn = document.getElementById("aslanClose");
+      var messagesEl = document.getElementById("aslanMessages");
+      var input = document.getElementById("aslanInput");
+      var sendBtn = document.getElementById("aslanSend");
+      var micBtn = document.getElementById("aslanMic");
+      var chipsEl = document.getElementById("aslanChips");
+      var typingEl = null;
+
+      var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var voiceRec = null;
+      var voiceBaseText = "";
+
+      var WELCOME_TEXT =
+        "Hi — I’m the IRIS ID assistant (local). Ask anything, or tap a suggestion below.";
+
+      var suggestions = [
+        "How can I contact support?",
+        "Request a demo",
+        "Product documentation",
+        "Office location",
+      ];
+
+      function appendMessage(role, text, isError) {
+        var div = document.createElement("div");
+        div.className = "msg " + (isError ? "error" : role === "user" ? "user" : "bot");
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function showTyping() {
+        if (typingEl) return;
+        typingEl = document.createElement("div");
+        typingEl.className = "msg typing";
+        typingEl.setAttribute("aria-label", "Assistant is typing");
+        typingEl.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+        messagesEl.appendChild(typingEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function hideTyping() {
+        if (!typingEl) return;
+        typingEl.remove();
+        typingEl = null;
+      }
+
+      function setLoading(loading) {
+        if (loading) stopVoiceInput();
+        sendBtn.disabled = loading;
+        if (micBtn) micBtn.disabled = loading;
+        if (loading) sendBtn.textContent = "…";
+        else sendBtn.textContent = "Send";
+      }
+
+      function stopVoiceInput() {
+        if (voiceRec) {
+          try {
+            voiceRec.onresult = null;
+            voiceRec.onerror = null;
+            voiceRec.onend = null;
+            voiceRec.stop();
+          } catch (e) {}
+          voiceRec = null;
+        }
+        if (micBtn) {
+          micBtn.classList.remove("listening");
+          micBtn.setAttribute("aria-pressed", "false");
+        }
+      }
+
+      function toggleVoiceInput() {
+        if (!SpeechRec) {
+          appendMessage(
+            "bot",
+            "Voice input is not supported in this browser. Try Chrome or Edge over HTTPS (or localhost).",
+            true
+          );
+          return;
+        }
+        if (micBtn && micBtn.classList.contains("listening")) {
+          stopVoiceInput();
+          return;
+        }
+        stopVoiceInput();
+        voiceBaseText = (input.value || "").trim();
+        if (voiceBaseText) voiceBaseText += " ";
+
+        voiceRec = new SpeechRec();
+        voiceRec.lang = (navigator.language || "en-US").replace(/_/g, "-");
+        voiceRec.interimResults = true;
+        voiceRec.continuous = false;
+        voiceRec.maxAlternatives = 1;
+
+        voiceRec.onresult = function (event) {
+          var piece = "";
+          for (var i = 0; i < event.results.length; i++) {
+            piece += event.results[i][0].transcript;
+          }
+          input.value = voiceBaseText + piece;
+        };
+        voiceRec.onerror = function (event) {
+          var msg = event.error || "unknown";
+          if (msg === "not-allowed") {
+            appendMessage("bot", "Microphone permission denied. Allow mic for this site and try again.", true);
+          } else if (msg !== "aborted" && msg !== "no-speech") {
+            appendMessage("bot", "Voice input error: " + msg, true);
+          }
+          stopVoiceInput();
+        };
+        voiceRec.onend = function () {
+          stopVoiceInput();
+        };
+
+        try {
+          if (micBtn) {
+            micBtn.classList.add("listening");
+            micBtn.setAttribute("aria-pressed", "true");
+          }
+          voiceRec.start();
+        } catch (e) {
+          stopVoiceInput();
+          appendMessage("bot", "Could not start voice input.", true);
+        }
+      }
+
+      function renderChips() {
+        chipsEl.innerHTML = "";
+        suggestions.forEach(function (label) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "chip";
+          b.textContent = label;
+          b.addEventListener("click", function () {
+            input.value = label;
+            sendMessage();
+          });
+          chipsEl.appendChild(b);
+        });
+      }
+
+      function resetChatUI() {
+        stopVoiceInput();
+        hideTyping();
+        messagesEl.innerHTML = "";
+        input.value = "";
+        setLoading(false);
+      }
+
+      function openPanelFresh() {
+        resetChatUI();
+        appendMessage("bot", WELCOME_TEXT);
+        messagesEl.scrollTop = 0;
+      }
+
+      function togglePanel(open) {
+        var wasOpen = panel.classList.contains("open");
+        if (open && !wasOpen) {
+          openPanelFresh();
+        } else if (!open && wasOpen) {
+          resetChatUI();
+        }
+        panel.classList.toggle("open", open);
+        document.body.classList.toggle("aslan-chat-open", open);
+      }
+
+      fab.addEventListener("click", function () {
+        togglePanel(!panel.classList.contains("open"));
+      });
+      closeBtn.addEventListener("click", function () {
+        togglePanel(false);
+      });
+
+      async function sendMessage() {
+        stopVoiceInput();
+        var text = (input.value || "").trim();
+        if (!text) return;
+        input.value = "";
+        appendMessage("user", text);
+        setLoading(true);
+        showTyping();
+        try {
+          var res = await fetch(API_BASE + "/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text, region_hint: null }),
+          });
+          var data = await res.json().catch(function () { return {}; });
+          hideTyping();
+          if (!res.ok) {
+            appendMessage("bot", data.detail || res.statusText || "Request failed", true);
+            return;
+          }
+          appendMessage("bot", data.reply || "(empty reply)");
+        } catch (e) {
+          hideTyping();
+          appendMessage("bot", "Network error: " + (e && e.message ? e.message : e), true);
+        } finally {
+          hideTyping();
+          setLoading(false);
+        }
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      if (micBtn) micBtn.addEventListener("click", toggleVoiceInput);
+      // IME (Korean, Japanese, …): Enter commits composition — ignore that keydown or text duplicates / double send.
+      input.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" || e.shiftKey) return;
+        if (e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        sendMessage();
+      });
+
+      renderChips();
+    })();
+  </script>
+</body>
+</html>
