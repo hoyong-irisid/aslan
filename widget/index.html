@@ -357,6 +357,101 @@
       color: var(--iris-muted);
       margin-top: 8px;
     }
+    .aslan-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10010;
+      padding: 20px;
+    }
+    .aslan-modal-backdrop.open { display: flex; }
+    .aslan-modal {
+      width: min(420px, calc(100vw - 40px));
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid #e2e8f0;
+      padding: 16px;
+    }
+    .aslan-modal-title {
+      margin: 0;
+      font-size: 1rem;
+      color: var(--iris-navy);
+    }
+    .aslan-modal-desc {
+      margin: 8px 0 12px;
+      color: var(--iris-muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+    .aslan-modal-input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+    }
+    .aslan-modal-input:focus {
+      outline: 2px solid var(--iris-accent);
+      border-color: transparent;
+    }
+    .aslan-modal-error {
+      display: none;
+      margin-top: 8px;
+      color: #b91c1c;
+      font-size: 0.8rem;
+    }
+    .aslan-modal-error.show { display: block; }
+    .aslan-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .aslan-btn {
+      border-radius: 10px;
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: var(--iris-navy);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+    .aslan-btn:hover { border-color: var(--iris-accent); color: #0369a1; }
+    .aslan-btn-primary {
+      border: none;
+      background: var(--iris-navy);
+      color: #fff;
+    }
+    .aslan-btn-primary:hover {
+      color: #fff;
+      background: #1e293b;
+    }
+    .aslan-toast {
+      position: fixed;
+      right: 22px;
+      bottom: calc(22px + var(--fab-size) + 24px);
+      z-index: 10020;
+      background: #0b1222;
+      color: #f8fafc;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .aslan-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .aslan-toast.error { background: #7f1d1d; }
   </style>
 </head>
 <body>
@@ -412,6 +507,29 @@
       <div class="aslan-hint">Powered by your local <code>/chat</code> API. Voice uses your browser (HTTPS or localhost). Email transcript needs Resend or SMTP in <code>.env</code>.</div>
     </div>
   </div>
+  <div class="aslan-modal-backdrop" id="aslanEmailModalBackdrop" aria-hidden="true">
+    <div class="aslan-modal" role="dialog" aria-modal="true" aria-labelledby="aslanEmailModalTitle">
+      <h3 class="aslan-modal-title" id="aslanEmailModalTitle">Email chat transcript</h3>
+      <p class="aslan-modal-desc" id="aslanEmailModalDesc">Enter the email address that should receive this conversation.</p>
+      <input type="email" class="aslan-modal-input" id="aslanEmailModalInput" placeholder="you@company.com" />
+      <div class="aslan-modal-error" id="aslanEmailModalError"></div>
+      <div class="aslan-modal-actions">
+        <button type="button" class="aslan-btn" id="aslanEmailModalCancel">Cancel</button>
+        <button type="button" class="aslan-btn aslan-btn-primary" id="aslanEmailModalSubmit">Send transcript</button>
+      </div>
+    </div>
+  </div>
+  <div class="aslan-modal-backdrop" id="aslanCloseConfirmBackdrop" aria-hidden="true">
+    <div class="aslan-modal" role="dialog" aria-modal="true" aria-labelledby="aslanCloseConfirmTitle">
+      <h3 class="aslan-modal-title" id="aslanCloseConfirmTitle">Close chat?</h3>
+      <p class="aslan-modal-desc">Do you want to send this chat transcript by email before closing?</p>
+      <div class="aslan-modal-actions">
+        <button type="button" class="aslan-btn" id="aslanCloseSkip">Skip and close</button>
+        <button type="button" class="aslan-btn aslan-btn-primary" id="aslanCloseSend">Send then close</button>
+      </div>
+    </div>
+  </div>
+  <div class="aslan-toast" id="aslanToast"></div>
 
   <script>
     (function () {
@@ -440,7 +558,19 @@
       var sendBtn = document.getElementById("aslanSend");
       var micBtn = document.getElementById("aslanMic");
       var chipsEl = document.getElementById("aslanChips");
+      var emailModalBackdrop = document.getElementById("aslanEmailModalBackdrop");
+      var emailModalDesc = document.getElementById("aslanEmailModalDesc");
+      var emailModalInput = document.getElementById("aslanEmailModalInput");
+      var emailModalError = document.getElementById("aslanEmailModalError");
+      var emailModalCancel = document.getElementById("aslanEmailModalCancel");
+      var emailModalSubmit = document.getElementById("aslanEmailModalSubmit");
+      var closeConfirmBackdrop = document.getElementById("aslanCloseConfirmBackdrop");
+      var closeSkipBtn = document.getElementById("aslanCloseSkip");
+      var closeSendBtn = document.getElementById("aslanCloseSend");
+      var toastEl = document.getElementById("aslanToast");
       var typingEl = null;
+      var toastTimer = null;
+      var activeModalCancel = null;
 
       var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       var voiceRec = null;
@@ -571,6 +701,128 @@
         if (micBtn) micBtn.disabled = loading;
         if (loading) sendBtn.textContent = "…";
         else sendBtn.textContent = "Send";
+      }
+
+      function showToast(message, isError) {
+        if (!toastEl) return;
+        if (toastTimer) {
+          window.clearTimeout(toastTimer);
+          toastTimer = null;
+        }
+        toastEl.textContent = String(message || "");
+        toastEl.classList.toggle("error", !!isError);
+        toastEl.classList.add("show");
+        toastTimer = window.setTimeout(function () {
+          toastEl.classList.remove("show");
+        }, isError ? 3600 : 2600);
+      }
+
+      function showModal(backdrop) {
+        if (!backdrop) return;
+        backdrop.classList.add("open");
+        backdrop.setAttribute("aria-hidden", "false");
+      }
+
+      function hideModal(backdrop) {
+        if (!backdrop) return;
+        backdrop.classList.remove("open");
+        backdrop.setAttribute("aria-hidden", "true");
+      }
+
+      function openEmailModal(descText, submitLabel) {
+        return new Promise(function (resolve) {
+          if (!emailModalBackdrop || !emailModalInput || !emailModalSubmit || !emailModalCancel) {
+            resolve(null);
+            return;
+          }
+          if (emailModalDesc) {
+            emailModalDesc.textContent =
+              descText || "Enter the email address that should receive this conversation.";
+          }
+          emailModalSubmit.textContent = submitLabel || "Send transcript";
+          emailModalInput.value = "";
+          emailModalInput.disabled = false;
+          emailModalSubmit.disabled = false;
+          if (emailModalError) {
+            emailModalError.classList.remove("show");
+            emailModalError.textContent = "";
+          }
+
+          function cleanup() {
+            emailModalCancel.removeEventListener("click", onCancel);
+            emailModalSubmit.removeEventListener("click", onSubmit);
+            emailModalBackdrop.removeEventListener("click", onBackdropClick);
+            document.removeEventListener("keydown", onEscKey);
+            activeModalCancel = null;
+          }
+          function closeWith(emailOrNull) {
+            cleanup();
+            hideModal(emailModalBackdrop);
+            resolve(emailOrNull);
+          }
+          function onCancel() { closeWith(null); }
+          function onBackdropClick(e) {
+            if (e.target === emailModalBackdrop) closeWith(null);
+          }
+          function onEscKey(e) {
+            if (e.key === "Escape") closeWith(null);
+          }
+          function onSubmit() {
+            var em = (emailModalInput.value || "").trim();
+            if (!em || em.indexOf("@") < 0) {
+              if (emailModalError) {
+                emailModalError.textContent = "Please enter a valid email address.";
+                emailModalError.classList.add("show");
+              }
+              emailModalInput.focus();
+              return;
+            }
+            closeWith(em);
+          }
+
+          emailModalCancel.addEventListener("click", onCancel);
+          emailModalSubmit.addEventListener("click", onSubmit);
+          emailModalBackdrop.addEventListener("click", onBackdropClick);
+          document.addEventListener("keydown", onEscKey);
+          activeModalCancel = onCancel;
+          showModal(emailModalBackdrop);
+          emailModalInput.focus();
+        });
+      }
+
+      function confirmSendBeforeClose() {
+        return new Promise(function (resolve) {
+          if (!closeConfirmBackdrop || !closeSkipBtn || !closeSendBtn) {
+            resolve(false);
+            return;
+          }
+          function cleanup() {
+            closeSkipBtn.removeEventListener("click", onSkip);
+            closeSendBtn.removeEventListener("click", onSend);
+            closeConfirmBackdrop.removeEventListener("click", onBackdropClick);
+            document.removeEventListener("keydown", onEscKey);
+            activeModalCancel = null;
+          }
+          function closeWith(shouldSend) {
+            cleanup();
+            hideModal(closeConfirmBackdrop);
+            resolve(shouldSend);
+          }
+          function onSkip() { closeWith(false); }
+          function onSend() { closeWith(true); }
+          function onBackdropClick(e) {
+            if (e.target === closeConfirmBackdrop) closeWith(false);
+          }
+          function onEscKey(e) {
+            if (e.key === "Escape") closeWith(false);
+          }
+          closeSkipBtn.addEventListener("click", onSkip);
+          closeSendBtn.addEventListener("click", onSend);
+          closeConfirmBackdrop.addEventListener("click", onBackdropClick);
+          document.addEventListener("keydown", onEscKey);
+          activeModalCancel = onSkip;
+          showModal(closeConfirmBackdrop);
+        });
       }
 
       function stopVoiceInput() {
@@ -712,31 +964,34 @@
       }
 
       async function promptAndSendTranscript() {
-        var em = window.prompt("Email address for the chat transcript:");
-        if (!em || em.indexOf("@") < 0) return;
+        var em = await openEmailModal(
+          "Enter the email address that should receive this conversation.",
+          "Send transcript"
+        );
+        if (!em) return;
         try {
           await postTranscriptEmail(em);
-          window.alert("Transcript sent. Check your inbox.");
+          showToast("Transcript sent. Check your inbox.");
         } catch (err) {
-          window.alert(err && err.message ? err.message : String(err));
+          showToast(err && err.message ? err.message : String(err), true);
         }
       }
 
       async function closePanelWithOptionalEmail() {
         var tok = getPartnerToken();
         if (tok && chatHistory.length > 0) {
-          var offer = window.confirm(
-            "Send this chat transcript to your email before closing?\n\n" +
-              "채팅을 닫기 전에 대화 기록을 이메일로 보낼까요?"
-          );
+          var offer = await confirmSendBeforeClose();
           if (offer) {
-            var em = window.prompt("Email address:");
-            if (em && em.indexOf("@") >= 0) {
+            var em = await openEmailModal(
+              "Send this transcript before closing the chat.",
+              "Send and close"
+            );
+            if (em) {
               try {
                 await postTranscriptEmail(em);
-                window.alert("Transcript sent.");
+                showToast("Transcript sent.");
               } catch (err) {
-                window.alert(err && err.message ? err.message : String(err));
+                showToast(err && err.message ? err.message : String(err), true);
               }
             }
           }
@@ -817,6 +1072,11 @@
         if (e.isComposing || e.keyCode === 229) return;
         e.preventDefault();
         sendMessage();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && activeModalCancel) {
+          activeModalCancel();
+        }
       });
 
       renderChips();
