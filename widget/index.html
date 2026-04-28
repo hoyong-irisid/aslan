@@ -167,20 +167,6 @@
       color: #15803d;
       cursor: default;
     }
-    .aslan-email-transcript {
-      display: none;
-      width: 100%;
-      margin-bottom: 8px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      color: var(--iris-navy);
-      font-size: 0.72rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .aslan-email-transcript:hover { border-color: var(--iris-accent); color: #0369a1; }
     .aslan-close {
       background: transparent;
       border: none;
@@ -229,6 +215,7 @@
       border-radius: 8px;
       border: 1px solid #cbd5e1;
       background: #fff;
+      cursor: zoom-in;
     }
     .msg .figure-options {
       margin-top: 8px;
@@ -452,6 +439,41 @@
       transform: translateY(0);
     }
     .aslan-toast.error { background: #7f1d1d; }
+    .aslan-image-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 10030;
+      background: rgba(2, 6, 23, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+    }
+    .aslan-image-lightbox.open { display: flex; }
+    .aslan-image-lightbox img {
+      max-width: min(1100px, 96vw);
+      max-height: 90vh;
+      border-radius: 10px;
+      box-shadow: 0 18px 50px rgba(2, 6, 23, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: #fff;
+      object-fit: contain;
+    }
+    .aslan-image-lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.72);
+      color: #fff;
+      font-size: 1.35rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .aslan-image-lightbox-close:hover { background: rgba(15, 23, 42, 0.9); }
   </style>
 </head>
 <body>
@@ -490,9 +512,6 @@
     </div>
     <div class="aslan-messages" id="aslanMessages"></div>
     <div class="aslan-footer">
-      <button type="button" class="aslan-email-transcript" id="aslanEmailTranscript">
-        Email chat transcript…
-      </button>
       <div class="chips" id="aslanChips"></div>
       <div class="row">
         <textarea class="aslan-input" id="aslanInput" rows="1" placeholder="Message…"></textarea>
@@ -507,44 +526,27 @@
       <div class="aslan-hint">Powered by your local <code>/chat</code> API. Voice uses your browser (HTTPS or localhost). Email transcript needs Resend or SMTP in <code>.env</code>.</div>
     </div>
   </div>
-  <div class="aslan-modal-backdrop" id="aslanEmailModalBackdrop" aria-hidden="true">
-    <div class="aslan-modal" role="dialog" aria-modal="true" aria-labelledby="aslanEmailModalTitle">
-      <h3 class="aslan-modal-title" id="aslanEmailModalTitle">Email chat transcript</h3>
-      <p class="aslan-modal-desc" id="aslanEmailModalDesc">Enter the email address that should receive this conversation.</p>
-      <input type="email" class="aslan-modal-input" id="aslanEmailModalInput" placeholder="you@company.com" />
-      <div class="aslan-modal-error" id="aslanEmailModalError"></div>
-      <div class="aslan-modal-actions">
-        <button type="button" class="aslan-btn" id="aslanEmailModalCancel">Cancel</button>
-        <button type="button" class="aslan-btn aslan-btn-primary" id="aslanEmailModalSubmit">Send transcript</button>
-      </div>
-    </div>
-  </div>
-  <div class="aslan-modal-backdrop" id="aslanCloseConfirmBackdrop" aria-hidden="true">
-    <div class="aslan-modal" role="dialog" aria-modal="true" aria-labelledby="aslanCloseConfirmTitle">
-      <h3 class="aslan-modal-title" id="aslanCloseConfirmTitle">Close chat?</h3>
-      <p class="aslan-modal-desc">Do you want to send this chat transcript by email before closing?</p>
-      <div class="aslan-modal-actions">
-        <button type="button" class="aslan-btn" id="aslanCloseSkip">Skip and close</button>
-        <button type="button" class="aslan-btn aslan-btn-primary" id="aslanCloseSend">Send then close</button>
-      </div>
-    </div>
-  </div>
   <div class="aslan-toast" id="aslanToast"></div>
+  <div class="aslan-image-lightbox" id="aslanImageLightbox" aria-hidden="true">
+    <button type="button" class="aslan-image-lightbox-close" id="aslanImageLightboxClose" aria-label="Close image preview">×</button>
+    <img id="aslanImageLightboxImg" alt="Expanded chat image" />
+  </div>
 
   <script>
     (function () {
       var API_BASE = ""; // same origin when served from FastAPI /widget/
       var PARTNER_TOKEN_KEY = "aslan.partner_token";
+      var TRANSCRIPT_RECIPIENT = "hoyong.lee@irisid.com";
       var chatHistory = [];
 
       function getPartnerToken() {
-        try { return window.localStorage.getItem(PARTNER_TOKEN_KEY) || null; }
+        try { return window.sessionStorage.getItem(PARTNER_TOKEN_KEY) || null; }
         catch (e) { return null; }
       }
       function setPartnerToken(tok) {
         try {
-          if (tok) window.localStorage.setItem(PARTNER_TOKEN_KEY, tok);
-          else window.localStorage.removeItem(PARTNER_TOKEN_KEY);
+          if (tok) window.sessionStorage.setItem(PARTNER_TOKEN_KEY, tok);
+          else window.sessionStorage.removeItem(PARTNER_TOKEN_KEY);
         } catch (e) {}
       }
 
@@ -552,25 +554,18 @@
       var panel = document.getElementById("aslanPanel");
       var closeBtn = document.getElementById("aslanClose");
       var partnerBadge = document.getElementById("aslanPartnerBadge");
-      var emailTranscriptBtn = document.getElementById("aslanEmailTranscript");
       var messagesEl = document.getElementById("aslanMessages");
       var input = document.getElementById("aslanInput");
       var sendBtn = document.getElementById("aslanSend");
       var micBtn = document.getElementById("aslanMic");
       var chipsEl = document.getElementById("aslanChips");
-      var emailModalBackdrop = document.getElementById("aslanEmailModalBackdrop");
-      var emailModalDesc = document.getElementById("aslanEmailModalDesc");
-      var emailModalInput = document.getElementById("aslanEmailModalInput");
-      var emailModalError = document.getElementById("aslanEmailModalError");
-      var emailModalCancel = document.getElementById("aslanEmailModalCancel");
-      var emailModalSubmit = document.getElementById("aslanEmailModalSubmit");
-      var closeConfirmBackdrop = document.getElementById("aslanCloseConfirmBackdrop");
-      var closeSkipBtn = document.getElementById("aslanCloseSkip");
-      var closeSendBtn = document.getElementById("aslanCloseSend");
       var toastEl = document.getElementById("aslanToast");
+      var imageLightbox = document.getElementById("aslanImageLightbox");
+      var imageLightboxImg = document.getElementById("aslanImageLightboxImg");
+      var imageLightboxClose = document.getElementById("aslanImageLightboxClose");
       var typingEl = null;
       var toastTimer = null;
-      var activeModalCancel = null;
+      var closingPanel = false;
 
       var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       var voiceRec = null;
@@ -622,9 +617,6 @@
             '<span class="picon-dot" aria-hidden="true"></span><span>Partner</span>';
           partnerBadge.setAttribute("aria-label", "Partner login");
         }
-        if (emailTranscriptBtn) {
-          emailTranscriptBtn.style.display = verified ? "block" : "none";
-        }
       }
 
       function appendMessage(role, text, isError) {
@@ -642,13 +634,17 @@
           .replace(/^\s*IMAGE_URL:\s*\S+\s*$/gim, "")
           .replace(/^\s*FIGURE_OPTION:\s*([a-z0-9\-_.]+)\|(.*)$/gim, "")
           .trim();
-        div.textContent = clean || raw;
+        var displayText = (clean || raw).replace(/^(\s*)\*\s+/gm, "$1• ");
+        renderInlineBold(div, displayText);
         imageUrls.forEach(function (u) {
           var img = document.createElement("img");
           img.className = "msg-image";
           img.src = u;
           img.alt = "Partner figure";
           img.loading = "lazy";
+          img.addEventListener("click", function () {
+            openImageLightbox(u, img.alt || "Expanded chat image");
+          });
           div.appendChild(img);
         });
         if (figureOptions.length > 0) {
@@ -677,6 +673,62 @@
         }
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function openImageLightbox(src, alt) {
+        if (!imageLightbox || !imageLightboxImg) return;
+        imageLightboxImg.src = String(src || "");
+        imageLightboxImg.alt = String(alt || "Expanded chat image");
+        imageLightbox.classList.add("open");
+        imageLightbox.setAttribute("aria-hidden", "false");
+      }
+
+      function closeImageLightbox() {
+        if (!imageLightbox || !imageLightboxImg) return;
+        imageLightbox.classList.remove("open");
+        imageLightbox.setAttribute("aria-hidden", "true");
+        imageLightboxImg.removeAttribute("src");
+      }
+
+      function _appendTextWithLinks(el, text) {
+        var src = String(text || "");
+        var re = /(https?:\/\/[^\s<>"')\]]+)/gi;
+        var last = 0;
+        var m;
+        while ((m = re.exec(src)) !== null) {
+          if (m.index > last) {
+            el.appendChild(document.createTextNode(src.slice(last, m.index)));
+          }
+          var a = document.createElement("a");
+          a.href = m[1];
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = m[1];
+          el.appendChild(a);
+          last = re.lastIndex;
+        }
+        if (last < src.length) {
+          el.appendChild(document.createTextNode(src.slice(last)));
+        }
+      }
+
+      function renderInlineBold(el, text) {
+        var src = String(text || "");
+        var re = /\*\*(.+?)\*\*/g;
+        var last = 0;
+        var m;
+        while ((m = re.exec(src)) !== null) {
+          if (m.index > last) {
+            _appendTextWithLinks(el, src.slice(last, m.index));
+          }
+          var strong = document.createElement("strong");
+          _appendTextWithLinks(strong, m[1]);
+          el.appendChild(strong);
+          last = re.lastIndex;
+        }
+        if (last < src.length) {
+          _appendTextWithLinks(el, src.slice(last));
+        }
       }
 
       function showTyping() {
@@ -717,113 +769,6 @@
         }, isError ? 3600 : 2600);
       }
 
-      function showModal(backdrop) {
-        if (!backdrop) return;
-        backdrop.classList.add("open");
-        backdrop.setAttribute("aria-hidden", "false");
-      }
-
-      function hideModal(backdrop) {
-        if (!backdrop) return;
-        backdrop.classList.remove("open");
-        backdrop.setAttribute("aria-hidden", "true");
-      }
-
-      function openEmailModal(descText, submitLabel) {
-        return new Promise(function (resolve) {
-          if (!emailModalBackdrop || !emailModalInput || !emailModalSubmit || !emailModalCancel) {
-            resolve(null);
-            return;
-          }
-          if (emailModalDesc) {
-            emailModalDesc.textContent =
-              descText || "Enter the email address that should receive this conversation.";
-          }
-          emailModalSubmit.textContent = submitLabel || "Send transcript";
-          emailModalInput.value = "";
-          emailModalInput.disabled = false;
-          emailModalSubmit.disabled = false;
-          if (emailModalError) {
-            emailModalError.classList.remove("show");
-            emailModalError.textContent = "";
-          }
-
-          function cleanup() {
-            emailModalCancel.removeEventListener("click", onCancel);
-            emailModalSubmit.removeEventListener("click", onSubmit);
-            emailModalBackdrop.removeEventListener("click", onBackdropClick);
-            document.removeEventListener("keydown", onEscKey);
-            activeModalCancel = null;
-          }
-          function closeWith(emailOrNull) {
-            cleanup();
-            hideModal(emailModalBackdrop);
-            resolve(emailOrNull);
-          }
-          function onCancel() { closeWith(null); }
-          function onBackdropClick(e) {
-            if (e.target === emailModalBackdrop) closeWith(null);
-          }
-          function onEscKey(e) {
-            if (e.key === "Escape") closeWith(null);
-          }
-          function onSubmit() {
-            var em = (emailModalInput.value || "").trim();
-            if (!em || em.indexOf("@") < 0) {
-              if (emailModalError) {
-                emailModalError.textContent = "Please enter a valid email address.";
-                emailModalError.classList.add("show");
-              }
-              emailModalInput.focus();
-              return;
-            }
-            closeWith(em);
-          }
-
-          emailModalCancel.addEventListener("click", onCancel);
-          emailModalSubmit.addEventListener("click", onSubmit);
-          emailModalBackdrop.addEventListener("click", onBackdropClick);
-          document.addEventListener("keydown", onEscKey);
-          activeModalCancel = onCancel;
-          showModal(emailModalBackdrop);
-          emailModalInput.focus();
-        });
-      }
-
-      function confirmSendBeforeClose() {
-        return new Promise(function (resolve) {
-          if (!closeConfirmBackdrop || !closeSkipBtn || !closeSendBtn) {
-            resolve(false);
-            return;
-          }
-          function cleanup() {
-            closeSkipBtn.removeEventListener("click", onSkip);
-            closeSendBtn.removeEventListener("click", onSend);
-            closeConfirmBackdrop.removeEventListener("click", onBackdropClick);
-            document.removeEventListener("keydown", onEscKey);
-            activeModalCancel = null;
-          }
-          function closeWith(shouldSend) {
-            cleanup();
-            hideModal(closeConfirmBackdrop);
-            resolve(shouldSend);
-          }
-          function onSkip() { closeWith(false); }
-          function onSend() { closeWith(true); }
-          function onBackdropClick(e) {
-            if (e.target === closeConfirmBackdrop) closeWith(false);
-          }
-          function onEscKey(e) {
-            if (e.key === "Escape") closeWith(false);
-          }
-          closeSkipBtn.addEventListener("click", onSkip);
-          closeSendBtn.addEventListener("click", onSend);
-          closeConfirmBackdrop.addEventListener("click", onBackdropClick);
-          document.addEventListener("keydown", onEscKey);
-          activeModalCancel = onSkip;
-          showModal(closeConfirmBackdrop);
-        });
-      }
 
       function stopVoiceInput() {
         if (voiceRec) {
@@ -942,7 +887,7 @@
         document.body.classList.toggle("aslan-chat-open", open);
       }
 
-      async function postTranscriptEmail(email) {
+      async function postTranscriptEmail() {
         var tok = getPartnerToken();
         if (!tok) throw new Error("Partner session required");
         var res = await fetch(API_BASE + "/email/chat-transcript", {
@@ -950,7 +895,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             partner_token: tok,
-            to_email: email.trim(),
+            to_email: TRANSCRIPT_RECIPIENT,
             messages: chatHistory,
           }),
         });
@@ -963,43 +908,30 @@
         return data;
       }
 
-      async function promptAndSendTranscript() {
-        var em = await openEmailModal(
-          "Enter the email address that should receive this conversation.",
-          "Send transcript"
-        );
-        if (!em) return;
-        try {
-          await postTranscriptEmail(em);
-          showToast("Transcript sent. Check your inbox.");
-        } catch (err) {
-          showToast(err && err.message ? err.message : String(err), true);
-        }
-      }
-
       async function closePanelWithOptionalEmail() {
-        var tok = getPartnerToken();
-        if (tok && chatHistory.length > 0) {
-          var offer = await confirmSendBeforeClose();
-          if (offer) {
-            var em = await openEmailModal(
-              "Send this transcript before closing the chat.",
-              "Send and close"
-            );
-            if (em) {
-              try {
-                await postTranscriptEmail(em);
-                showToast("Transcript sent.");
-              } catch (err) {
-                showToast(err && err.message ? err.message : String(err), true);
-              }
+        if (closingPanel) return;
+        closingPanel = true;
+        try {
+          var tok = getPartnerToken();
+          if (tok && chatHistory.length > 0) {
+            try {
+              await postTranscriptEmail();
+              showToast("Transcript sent to hoyong.lee@irisid.com.");
+            } catch (err) {
+              showToast(err && err.message ? err.message : String(err), true);
             }
           }
+        } finally {
+          // Closing the chat always ends partner session for this widget session.
+          setPartnerToken(null);
+          syncPartnerBadge();
+          togglePanel(false);
+          closingPanel = false;
         }
-        togglePanel(false);
       }
 
       fab.addEventListener("click", function () {
+        if (closingPanel) return;
         if (panel.classList.contains("open")) {
           closePanelWithOptionalEmail();
         } else {
@@ -1008,6 +940,7 @@
       });
       closeBtn.addEventListener("click", function (e) {
         e.preventDefault();
+        if (closingPanel) return;
         closePanelWithOptionalEmail();
       });
       if (partnerBadge) {
@@ -1018,11 +951,6 @@
             "Please enter your Partner access ID in the message box below."
           );
           input.focus();
-        });
-      }
-      if (emailTranscriptBtn) {
-        emailTranscriptBtn.addEventListener("click", function () {
-          promptAndSendTranscript();
         });
       }
 
@@ -1042,6 +970,7 @@
               message: text,
               region_hint: null,
               partner_token: getPartnerToken(),
+              chat_history: chatHistory.slice(0, -1),
             }),
           });
           var data = await res.json().catch(function () { return {}; });
@@ -1074,11 +1003,22 @@
         sendMessage();
       });
       document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && activeModalCancel) {
-          activeModalCancel();
+        if (e.key === "Escape" && imageLightbox && imageLightbox.classList.contains("open")) {
+          closeImageLightbox();
+          return;
         }
       });
+      if (imageLightbox) {
+        imageLightbox.addEventListener("click", function (e) {
+          if (e.target === imageLightbox) closeImageLightbox();
+        });
+      }
+      if (imageLightboxClose) {
+        imageLightboxClose.addEventListener("click", closeImageLightbox);
+      }
 
+      // Partner auth is per-chat/session only. Never restore from previous page lifetime.
+      setPartnerToken(null);
       renderChips();
       syncPartnerBadge();
     })();

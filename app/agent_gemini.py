@@ -221,6 +221,7 @@ def run_gemini_agent(
     language_iso: str,
     is_partner: bool = False,
     partner_token: str | None = None,
+    chat_history: list[dict[str, str]] | None = None,
 ) -> str:
     settings = get_settings()
     kb_prefetch: str | None = None
@@ -244,9 +245,16 @@ def run_gemini_agent(
         kb_prefetch_block=kb_prefetch,
         is_partner=is_partner,
     )
-    contents: list[dict[str, Any]] = [
-        {"role": "user", "parts": [{"text": user_message}]},
-    ]
+    contents: list[dict[str, Any]] = []
+    for turn in chat_history or []:
+        role = str(turn.get("role", "")).strip().lower()
+        text = str(turn.get("text", "")).strip()
+        if role not in ("user", "assistant") or not text:
+            continue
+        gm_role = "model" if role == "assistant" else "user"
+        contents.append({"role": gm_role, "parts": [{"text": text}]})
+    # Ensure the current user turn is always present as the final turn.
+    contents.append({"role": "user", "parts": [{"text": user_message}]})
     last_text_reply = ""
     tool_decls = _tool_declarations(is_partner=is_partner)
 

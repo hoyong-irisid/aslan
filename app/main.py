@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,20 @@ def _redact_secrets(text: str) -> str:
     return t
 
 
+def _mask_token(token: str | None) -> str:
+    t = (token or "").strip()
+    if not t:
+        return "none"
+    if len(t) <= 8:
+        return "***"
+    return f"{t[:4]}...{t[-4:]}"
+
+
+class ChatHistoryLine(BaseModel):
+    role: str = Field(min_length=1)
+    text: str = Field(default="")
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     region_hint: str | None = Field(
@@ -35,6 +50,10 @@ class ChatRequest(BaseModel):
     partner_token: str | None = Field(
         default=None,
         description="Session token issued after a valid partner access code was verified.",
+    )
+    chat_history: list[ChatHistoryLine] = Field(
+        default_factory=list,
+        description="Recent turns from this chat session (oldest first).",
     )
 
 
@@ -127,6 +146,7 @@ def chat(body: ChatRequest) -> ChatResponse:
             body.message,
             body.region_hint,
             partner_token=body.partner_token,
+            chat_history=body.chat_history,
         )
     except Exception as exc:
         return ChatResponse(
@@ -162,6 +182,9 @@ def email_chat_transcript(body: EmailTranscriptRequest) -> EmailTranscriptRespon
     if len(body.messages) > 300:
         raise HTTPException(status_code=400, detail="Too many messages (max 300)")
     settings = get_settings()
+    log = logging.getLogger("uvicorn.error")
+    event_ts = datetime.now(timezone.utc).isoformat()
+    token_hint = _mask_token(body.partner_token)
     lines: list[str] = []
     total = 0
     for m in body.messages:
@@ -181,10 +204,31 @@ def email_chat_transcript(body: EmailTranscriptRequest) -> EmailTranscriptRespon
             settings=settings,
         )
     except ValueError as exc:
+        log.warning(
+            "Transcript email failed validation ts=%s token=%s to=%s detail=%s",
+            event_ts,
+            token_hint,
+            body.to_email,
+            exc,
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
+        log.warning(
+            "Transcript email failed runtime ts=%s token=%s to=%s detail=%s",
+            event_ts,
+            token_hint,
+            body.to_email,
+            exc,
+        )
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        log.exception(
+            "Transcript email failed unexpected ts=%s token=%s to=%s type=%s",
+            event_ts,
+            token_hint,
+            body.to_email,
+            exc.__class__.__name__,
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Failed to send email: {exc.__class__.__name__}",

@@ -244,6 +244,7 @@ def handle_chat(
     region_hint: str | None = None,
     *,
     partner_token: str | None = None,
+    chat_history: list[dict[str, str]] | None = None,
 ) -> ChatResult:
     settings = get_settings()
     lang = detect_language_iso(message)
@@ -254,6 +255,21 @@ def handle_chat(
 
     is_partner = is_partner_session(partner_token)
     partner_meta_token = partner_token if is_partner else None
+    normalized_history: list[dict[str, str]] = []
+    for row in chat_history or []:
+        role_raw = ""
+        text_raw = ""
+        if isinstance(row, dict):
+            role_raw = str(row.get("role", ""))
+            text_raw = str(row.get("text", ""))
+        else:
+            role_raw = str(getattr(row, "role", ""))
+            text_raw = str(getattr(row, "text", ""))
+        role = role_raw.strip().lower()
+        if role in ("user", "assistant") and text_raw.strip():
+            normalized_history.append({"role": role, "text": text_raw})
+    if len(normalized_history) > 16:
+        normalized_history = normalized_history[-16:]
 
     def _ok(text: str) -> ChatResult:
         return ChatResult(
@@ -277,6 +293,7 @@ def handle_chat(
                 language_iso=lang,
                 is_partner=is_partner,
                 partner_token=partner_meta_token,
+                chat_history=normalized_history,
             )
             return _ok(reply)
         except Exception as exc:
