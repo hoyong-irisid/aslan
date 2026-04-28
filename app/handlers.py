@@ -179,20 +179,20 @@ def _llm_failure_reply(exc: Exception) -> str:
 
 
 _PARTNER_ASK_CODE_EN = (
-    "If you're an IRIS ID partner, please send me your partner access code "
+    "If you're an Iris ID partner, please send me your partner access code "
     "(e.g. the 4-digit code you received) to unlock internal product KB."
 )
 _PARTNER_ASK_CODE_KO = (
-    "IRIS ID 파트너이시면, 전달받으신 파트너 접속 코드를 입력해 주세요. "
+    "Iris ID 파트너이시면, 전달받으신 파트너 접속 코드를 입력해 주세요. "
     "그래야 내부 제품 자료(매뉴얼 등)를 바탕으로 답변드릴 수 있어요."
 )
 _PARTNER_GREETING_EN = (
-    "Verified — welcome, IRIS ID partner. How can I help? "
-    "I can now answer from our internal product docs (e.g. IA-1000 manual)."
+    "Verified — welcome, Iris ID partner. How can I help? "
+    "I can now answer from our internal product docs (e.g. iA1000 manual)."
 )
 _PARTNER_GREETING_KO = (
     "파트너 인증이 완료되었습니다. 무엇을 도와드릴까요? "
-    "이제 내부 제품 매뉴얼(예: IA-1000)을 바탕으로 답변드릴 수 있어요."
+    "이제 내부 제품 매뉴얼(예: iA1000)을 바탕으로 답변드릴 수 있어요."
 )
 
 

@@ -45,7 +45,7 @@ _TOOL_WEB_SEARCH: dict[str, Any] = {
     "description": (
         "Search the public web. Use for news, competitors, and general facts. Also use after "
         "search_company_knowledge returns nothing useful for an IRIS model/overview question — "
-        "query with e.g. \"IRIS ID IA-1000\" or product name so official site pages rank. "
+        "query with e.g. \"Iris ID iA1000\" or product name so official site pages rank. "
         "Never invent precise specs (dimensions, certifications) not present in KB or snippet text. "
         "If pre-loaded company knowledge states a fact, do not contradict it with unrelated URLs."
     ),
@@ -64,10 +64,10 @@ _TOOL_WEB_SEARCH: dict[str, Any] = {
 _TOOL_SEARCH_PARTNER: dict[str, Any] = {
     "name": "search_partner_knowledge",
     "description": (
-        "Search IRIS ID's PARTNER-ONLY knowledge base (internal product manuals such as the IA-1000 "
+        "Search Iris ID's PARTNER-ONLY knowledge base (internal product manuals such as the iA1000 "
         "user manual, version history). Available ONLY when the user has been verified as a partner. "
         "Prefer this tool over web_search and over search_company_knowledge for internal/manual-level "
-        "questions about IRIS ID products. Do not reveal raw manual passages verbatim if they contain "
+        "questions about Iris ID products. Do not reveal raw manual passages verbatim if they contain "
         "proprietary confidential data; summarize instead."
     ),
     "parameters": {
@@ -88,7 +88,7 @@ _TOOL_PARTNER_FIGURE: dict[str, Any] = {
     "description": (
         "Find a partner-only product figure/diagram image (from figures.json manifest). "
         "Use when user asks to 'show' or 'see' a diagram/image from manuals "
-        "(e.g. IA-1000 rear view with installation plate)."
+        "(e.g. iA1000 rear view with installation plate)."
     ),
     "parameters": {
         "type": "object",
@@ -137,8 +137,8 @@ If the block does not cover their exact question (wrong product, empty, or only 
     partner_section = ""
     if is_partner:
         partner_section = (
-            "\nPARTNER MODE: This user is an authenticated IRIS ID partner.\n"
-            "- For any IRIS product / model / spec / install / troubleshooting question (esp. IA-1000), "
+            "\nPARTNER MODE: This user is an authenticated Iris ID partner.\n"
+            "- For any IRIS product / model / spec / install / troubleshooting question (esp. iA1000), "
             "call `search_partner_knowledge` FIRST. It covers internal manuals and history not on the public web.\n"
             "- If partner KB does not answer, fall back to `search_company_knowledge`, then `web_search`.\n"
             "- If user asks to show a manual image/diagram, call `get_partner_figure`.\n"
@@ -152,14 +152,14 @@ If the block does not cover their exact question (wrong product, empty, or only 
             "- Do not use `search_partner_knowledge` (it is unavailable).\n"
             "- Answer only from public sources: `search_company_knowledge` and `web_search`.\n"
             "- If the user asks for internal/manual-level IRIS info you cannot give publicly, tell them "
-            "that this information is available to verified IRIS ID partners and invite them to enter "
+            "that this information is available to verified Iris ID partners and invite them to enter "
             "their partner access code to continue.\n"
         )
     return f"""You are IRIS ID's website assistant.
 Rules:
 - Match the user's language when you reply.
 {kb_section}{partner_section}
-- For IRIS models/products (e.g. \"what is IA-1000?\"): if partner mode, call `search_partner_knowledge` first; otherwise call `search_company_knowledge`. If snippets are empty or clearly off-topic, call `web_search` with an IRIS-focused query — public homepage/product pages are valid for high-level \"what is this\". Do not fabricate precise technical specs absent from KB or search results.
+- For Iris ID models/products (e.g. \"what is iA1000?\"): if partner mode, call `search_partner_knowledge` first; otherwise call `search_company_knowledge`. If snippets are empty or clearly off-topic, call `web_search` with an IRIS-focused query — public homepage/product pages are valid for high-level \"what is this\". Do not fabricate precise technical specs absent from KB or search results.
 - If pre-loaded KB above is empty and the user needs IRIS facts: still call the appropriate search tool, then `web_search` if needed as above.
 - Use `web_search` for clearly external topics too (news, non-IRIS general facts, competitors).
 - For casual chat with no factual lookup, answer directly without tools.

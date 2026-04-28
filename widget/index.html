@@ -55,20 +55,24 @@
       justify-content: center;
       padding: 0;
       line-height: 0;
+      overflow: visible;
       z-index: 9998;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .aslan-fab:hover { transform: scale(1.05); }
     .aslan-fab-logo {
       display: block;
-      height: 24px;
+      height: 280px;
       width: auto;
-      max-width: min(44px, calc(var(--fab-size) - 18px));
+      max-width: 280px;
       object-fit: contain;
       object-position: center;
       pointer-events: none;
       flex: 0 0 auto;
+      transform-origin: center center;
+      transition: transform 0.45s ease;
     }
+    .aslan-fab:hover .aslan-fab-logo { transform: rotate(90deg); }
 
     /* Panel */
     .aslan-panel {
@@ -133,8 +137,8 @@
     .aslan-partner-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
+      gap: 4px;
+      padding: 6px 10px;
       border-radius: 999px;
       border: none;
       background: #fff;
@@ -146,22 +150,32 @@
       white-space: nowrap;
     }
     .aslan-partner-badge .picon-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #2563eb;
+      width: 12px;
+      height: 14px;
       flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #111827;
+    }
+    .aslan-partner-badge .picon-dot svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
     .aslan-partner-badge .picon-check {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #16a34a;
-      color: #fff;
-      font-size: 10px;
-      line-height: 16px;
-      text-align: center;
+      width: 12px;
+      height: 14px;
       flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #16a34a;
+    }
+    .aslan-partner-badge .picon-check svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
     .aslan-partner-badge.verified {
       color: #15803d;
@@ -196,7 +210,16 @@
       font-size: 0.9rem;
       line-height: 1.45;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
+    .msg a {
+      color: #2563eb;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+    .msg a:hover { color: #1d4ed8; }
     .msg.user {
       align-self: flex-end;
       background: var(--bubble-user);
@@ -233,6 +256,42 @@
       cursor: pointer;
     }
     .msg .figure-option-btn:hover { border-color: var(--iris-accent); color: #780012; }
+    .msg .choice-options {
+      margin-top: 10px;
+      border: 1px solid #dbe3ef;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+    }
+    .msg .choice-option-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--iris-navy);
+    }
+    .msg .choice-option-row input[type="radio"] {
+      margin: 0;
+      accent-color: #0f172a;
+    }
+    .msg .choice-option-actions {
+      margin-top: 2px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .msg .choice-option-send {
+      font-size: 0.74rem;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: var(--iris-navy);
+      padding: 6px 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .msg .choice-option-send:hover { border-color: var(--iris-accent); color: #0369a1; }
     .msg.typing {
       align-self: flex-start;
       background: var(--bubble-bot);
@@ -488,7 +547,7 @@
   </div>
 
   <button type="button" class="aslan-fab" id="aslanFab" aria-label="Open chat">
-    <img src="symbol-irisid-light.png" width="40" height="auto"
+    <img class="aslan-fab-logo" src="symbol-irisid-white.svg" width="160" height="auto"
     />
   </button>
 
@@ -572,7 +631,7 @@
       var voiceBaseText = "";
 
       var WELCOME_TEXT =
-        "Hi — I’m the IRIS ID assistant (local). Ask anything, or tap a suggestion below.";
+        "Hi, I’m the Iris ID assistant. Ask anything, or tap a suggestion below.";
 
       var suggestions = [
         "How can I contact support?",
@@ -604,17 +663,48 @@
         return out;
       }
 
+      function _extractChoiceOptions(text) {
+        var src = String(text || "");
+        var lines = src.split(/\n/);
+        var opts = [];
+        var kept = [];
+        lines.forEach(function (ln) {
+          var m = ln.match(/^\s*(?:[-*•]|\d+[.)])\s*["']?([^"'\n]+?)["']?\s*$/);
+          if (m && m[1]) {
+            var option = m[1].trim();
+            if (option.length >= 3) {
+              opts.push(option);
+              return;
+            }
+          }
+          kept.push(ln);
+        });
+        // De-dupe and keep only reasonable, explicit options.
+        var uniq = [];
+        var seen = {};
+        opts.forEach(function (o) {
+          var k = o.toLowerCase();
+          if (seen[k]) return;
+          seen[k] = true;
+          uniq.push(o);
+        });
+        if (uniq.length < 2 || uniq.length > 8) {
+          return { options: [], stripped: src };
+        }
+        return { options: uniq, stripped: kept.join("\n").trim() || src };
+      }
+
       function syncPartnerBadge() {
         if (!partnerBadge) return;
         var verified = !!getPartnerToken();
         partnerBadge.classList.toggle("verified", verified);
         if (verified) {
           partnerBadge.innerHTML =
-            '<span class="picon-check" aria-hidden="true">&#10003;</span><span>Verified</span>';
+            '<span class="picon-check" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd"/></svg></span><span>Verified</span>';
           partnerBadge.setAttribute("aria-label", "Verified partner");
         } else {
           partnerBadge.innerHTML =
-            '<span class="picon-dot" aria-hidden="true"></span><span>Partner</span>';
+            '<span class="picon-dot" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg></span><span>Partner</span>';
           partnerBadge.setAttribute("aria-label", "Partner login");
         }
       }
@@ -630,11 +720,13 @@
         div.className = "msg " + (isError ? "error" : role === "user" ? "user" : "bot");
         var imageUrls = _extractImageUrls(raw);
         var figureOptions = _extractFigureOptions(raw);
+        var genericChoice = _extractChoiceOptions(raw);
         var clean = raw
           .replace(/^\s*IMAGE_URL:\s*\S+\s*$/gim, "")
           .replace(/^\s*FIGURE_OPTION:\s*([a-z0-9\-_.]+)\|(.*)$/gim, "")
           .trim();
-        var displayText = (clean || raw).replace(/^(\s*)\*\s+/gm, "$1• ");
+        var displayBase = genericChoice.options.length > 0 ? genericChoice.stripped : (clean || raw);
+        var displayText = displayBase.replace(/^(\s*)\*\s+/gm, "$1• ");
         renderInlineBold(div, displayText);
         imageUrls.forEach(function (u) {
           var img = document.createElement("img");
@@ -670,6 +762,39 @@
             wrap.appendChild(b);
           });
           div.appendChild(wrap);
+        } else if (genericChoice.options.length > 0) {
+          var choiceWrap = document.createElement("div");
+          choiceWrap.className = "choice-options";
+          var radioName = "aslan-choice-" + Date.now() + "-" + Math.floor(Math.random() * 10000);
+          genericChoice.options.forEach(function (opt, idx) {
+            var row = document.createElement("label");
+            row.className = "choice-option-row";
+            var r = document.createElement("input");
+            r.type = "radio";
+            r.name = radioName;
+            r.value = opt;
+            if (idx === 0) r.checked = true;
+            var s = document.createElement("span");
+            renderInlineBold(s, opt);
+            row.appendChild(r);
+            row.appendChild(s);
+            choiceWrap.appendChild(row);
+          });
+          var action = document.createElement("div");
+          action.className = "choice-option-actions";
+          var chooseBtn = document.createElement("button");
+          chooseBtn.type = "button";
+          chooseBtn.className = "choice-option-send";
+          chooseBtn.textContent = "Select";
+          chooseBtn.addEventListener("click", function () {
+            var selected = choiceWrap.querySelector('input[name="' + radioName + '"]:checked');
+            if (!selected) return;
+            input.value = selected.value;
+            sendMessage();
+          });
+          action.appendChild(chooseBtn);
+          choiceWrap.appendChild(action);
+          div.appendChild(choiceWrap);
         }
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;

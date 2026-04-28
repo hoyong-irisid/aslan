@@ -22,7 +22,10 @@ def _manifest_path() -> Path:
 
 
 def _normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "").strip().lower())
+    t = (text or "").strip().lower()
+    t = t.replace("ia-1000", "ia1000")
+    t = re.sub(r"\s+", " ", t)
+    return t
 
 
 _STOPWORDS = {
@@ -43,7 +46,6 @@ _STOPWORDS = {
     "user",
     "section",
     "figure",
-    "ia1000",
     "iris",
     "id",
 }
@@ -76,6 +78,7 @@ def load_figure_assets() -> list[FigureAsset]:
     rows = raw.get("figures") if isinstance(raw, dict) else None
     if not isinstance(rows, list):
         return []
+    root = resolve_partner_docs_path().resolve()
     out: list[FigureAsset] = []
     for row in rows:
         if not isinstance(row, dict):
@@ -86,6 +89,14 @@ def load_figure_assets() -> list[FigureAsset]:
         aliases_raw = row.get("aliases") or []
         aliases = [str(a).strip() for a in aliases_raw if str(a).strip()]
         if not (asset_id and title and file):
+            continue
+        # If manifest is stale (file deleted/moved), skip it from retrieval candidates.
+        p = (root / file).resolve()
+        try:
+            p.relative_to(root)
+        except Exception:
+            continue
+        if not p.is_file():
             continue
         out.append(FigureAsset(asset_id=asset_id, title=title, file=file, aliases=aliases))
     return out
@@ -118,13 +129,55 @@ def _score_asset(query: str, asset: FigureAsset) -> int:
     return s
 
 
+def _expand_query_variants(query: str) -> list[str]:
+    q = _normalize(query)
+    if not q:
+        return []
+    variants = [q]
+
+    # Common follow-up phrasing (EN + KO) for "show real photo/image".
+    replaced = q
+    replaced = re.sub(r"\breal\s+photo(s)?\b", "front view photo", replaced)
+    replaced = re.sub(r"\breal\s+image(s)?\b", "front view photo", replaced)
+    replaced = re.sub(r"\bactual\s+photo(s)?\b", "front view photo", replaced)
+    replaced = re.sub(r"\bphoto(s)?\b", "image", replaced)
+    replaced = replaced.replace("진짜 사진", "실물 사진")
+    replaced = replaced.replace("실사", "실물 사진")
+    replaced = replaced.replace("실물", "front view")
+    if replaced != q:
+        variants.append(replaced)
+
+    # If request is too short/ambiguous, bias toward common product shot labels.
+    short_q = re.sub(r"[^a-z0-9가-힣 ]+", " ", q).strip()
+    if len(short_q) <= 16:
+        variants.append(f"{q} front view")
+        variants.append(f"{q} camera unit")
+        variants.append(f"{q} rear view")
+
+    # De-duplicate while preserving order.
+    out: list[str] = []
+    seen: set[str] = set()
+    for v in variants:
+        vv = _normalize(v)
+        if not vv or vv in seen:
+            continue
+        seen.add(vv)
+        out.append(vv)
+    return out
+
+
 def resolve_figure_candidates(query: str, limit: int = 5) -> list[FigureAsset]:
     assets = load_figure_assets()
     if not assets:
         return []
-    ranked = sorted(assets, key=lambda a: _score_asset(query, a), reverse=True)
-    # Keep only candidates with non-trivial score.
-    keep = [a for a in ranked if _score_asset(query, a) >= 40]
+    variants = _expand_query_variants(query) or [_normalize(query)]
+    ranked = sorted(
+        assets,
+        key=lambda a: max(_score_asset(v, a) for v in variants),
+        reverse=True,
+    )
+    # Keep candidates with modest score so auto-extracted figures still surface.
+    keep = [a for a in ranked if max(_score_asset(v, a) for v in variants) >= 20]
     return keep[: max(1, limit)]
 
 
@@ -133,14 +186,16 @@ def resolve_figure_by_query(query: str) -> FigureAsset | None:
     if not cands:
         return None
     best = cands[0]
-    best_score = _score_asset(query, best)
-    # Be conservative: avoid wrong image when confidence is low.
-    if best_score < 80:
+    variants = _expand_query_variants(query) or [_normalize(query)]
+    best_score = max(_score_asset(v, best) for v in variants)
+    # Conservative, but not too strict: extracted assets often have weak captions.
+    if best_score < 55:
         return None
     if len(cands) >= 2:
         second = cands[1]
         # If top-2 are too close, treat as ambiguous.
-        if best_score - _score_asset(query, second) < 20:
+        second_score = max(_score_asset(v, second) for v in variants)
+        if best_score - second_score < 12:
             return None
     return best
 

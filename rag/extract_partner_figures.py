@@ -74,6 +74,23 @@ def _extract_caption_lines(page_text: str) -> list[str]:
     return out[:12]
 
 
+def _uniq_keep_order(items: list[str], limit: int = 12) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for it in items:
+        s = (it or "").strip()
+        if not s:
+            continue
+        k = s.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(s)
+        if len(out) >= max(1, limit):
+            break
+    return out
+
+
 def _load_manifest(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {"figures": []}
@@ -98,6 +115,36 @@ def _upsert_figure_rows(manifest: dict[str, Any], rows: list[dict[str, Any]]) ->
     for row in rows:
         by_id[row["id"]] = row
     manifest["figures"] = list(by_id.values())
+
+
+def _prune_missing_files(manifest: dict[str, Any], root: Path) -> int:
+    rows = manifest.get("figures")
+    if not isinstance(rows, list):
+        manifest["figures"] = []
+        return 0
+    kept: list[dict[str, Any]] = []
+    removed = 0
+    root_resolved = root.resolve()
+    for row in rows:
+        if not isinstance(row, dict):
+            removed += 1
+            continue
+        file_rel = str(row.get("file", "")).strip()
+        if not file_rel:
+            removed += 1
+            continue
+        p = (root_resolved / file_rel).resolve()
+        try:
+            p.relative_to(root_resolved)
+        except Exception:
+            removed += 1
+            continue
+        if not p.is_file():
+            removed += 1
+            continue
+        kept.append(row)
+    manifest["figures"] = kept
+    return removed
 
 
 def _image_size(blob: bytes) -> tuple[int, int]:
@@ -169,6 +216,11 @@ def main() -> None:
         "--clean-generated-assets",
         action="store_true",
         help="Delete prior auto-generated files for this PDF prefix before writing new ones.",
+    )
+    parser.add_argument(
+        "--no-prune-missing",
+        action="store_true",
+        help="Do not remove manifest rows whose file paths are missing.",
     )
     args = parser.parse_args()
 
@@ -248,6 +300,9 @@ def main() -> None:
             ]
             if cap:
                 aliases.append(cap)
+            # Add page-level caption cues for better retrieval of auto-extracted images.
+            aliases.extend(captions[:8])
+            aliases = _uniq_keep_order(aliases, limit=12)
             new_rows.append(
                 {
                     "id": asset_id,
@@ -268,6 +323,9 @@ def main() -> None:
 
     manifest = _load_manifest(manifest_path)
     _upsert_figure_rows(manifest, new_rows)
+    pruned = 0
+    if not args.no_prune_missing:
+        pruned = _prune_missing_files(manifest, root)
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -279,6 +337,8 @@ def main() -> None:
     print(f"Rejected images: {rejected}")
     if reject_stats:
         print(f"Reject breakdown: {reject_stats}")
+    if pruned:
+        print(f"Pruned stale manifest rows: {pruned}")
     print(f"Assets dir: {assets_dir}")
     print(f"Updated manifest: {manifest_path}")
 
