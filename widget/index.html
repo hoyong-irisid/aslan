@@ -124,6 +124,63 @@
     }
     .aslan-header strong { font-size: 0.95rem; }
     .aslan-header span { font-size: 0.72rem; opacity: 0.85; }
+    .aslan-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .aslan-partner-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: none;
+      background: #fff;
+      color: var(--iris-navy);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      white-space: nowrap;
+    }
+    .aslan-partner-badge .picon-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2563eb;
+      flex-shrink: 0;
+    }
+    .aslan-partner-badge .picon-check {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #16a34a;
+      color: #fff;
+      font-size: 10px;
+      line-height: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .aslan-partner-badge.verified {
+      color: #15803d;
+      cursor: default;
+    }
+    .aslan-email-transcript {
+      display: none;
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: var(--iris-navy);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .aslan-email-transcript:hover { border-color: var(--iris-accent); color: #0369a1; }
     .aslan-close {
       background: transparent;
       border: none;
@@ -165,6 +222,30 @@
       color: var(--iris-navy);
     }
     .msg.error { background: #fee2e2; color: #991b1b; }
+    .msg .msg-image {
+      margin-top: 8px;
+      display: block;
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+    }
+    .msg .figure-options {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .msg .figure-option-btn {
+      font-size: 0.72rem;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: var(--iris-navy);
+      cursor: pointer;
+    }
+    .msg .figure-option-btn:hover { border-color: var(--iris-accent); color: #780012; }
     .msg.typing {
       align-self: flex-start;
       background: var(--bubble-bot);
@@ -305,10 +386,18 @@
           <span>Local · ASLAN</span>
         </div>
       </div>
-      <button type="button" class="aslan-close" id="aslanClose" aria-label="Close chat">×</button>
+      <div class="aslan-header-actions">
+        <button type="button" class="aslan-partner-badge" id="aslanPartnerBadge" aria-label="Partner login">
+          <span class="picon-dot" aria-hidden="true"></span><span>Partner</span>
+        </button>
+        <button type="button" class="aslan-close" id="aslanClose" aria-label="Close chat">×</button>
+      </div>
     </div>
     <div class="aslan-messages" id="aslanMessages"></div>
     <div class="aslan-footer">
+      <button type="button" class="aslan-email-transcript" id="aslanEmailTranscript">
+        Email chat transcript…
+      </button>
       <div class="chips" id="aslanChips"></div>
       <div class="row">
         <textarea class="aslan-input" id="aslanInput" rows="1" placeholder="Message…"></textarea>
@@ -320,17 +409,32 @@
         </button>
         <button type="button" class="aslan-send" id="aslanSend">Send</button>
       </div>
-      <div class="aslan-hint">Powered by your local <code>/chat</code> API. Voice uses your browser (HTTPS or localhost).</div>
+      <div class="aslan-hint">Powered by your local <code>/chat</code> API. Voice uses your browser (HTTPS or localhost). Email transcript needs Resend or SMTP in <code>.env</code>.</div>
     </div>
   </div>
 
   <script>
     (function () {
       var API_BASE = ""; // same origin when served from FastAPI /widget/
+      var PARTNER_TOKEN_KEY = "aslan.partner_token";
+      var chatHistory = [];
+
+      function getPartnerToken() {
+        try { return window.localStorage.getItem(PARTNER_TOKEN_KEY) || null; }
+        catch (e) { return null; }
+      }
+      function setPartnerToken(tok) {
+        try {
+          if (tok) window.localStorage.setItem(PARTNER_TOKEN_KEY, tok);
+          else window.localStorage.removeItem(PARTNER_TOKEN_KEY);
+        } catch (e) {}
+      }
 
       var fab = document.getElementById("aslanFab");
       var panel = document.getElementById("aslanPanel");
       var closeBtn = document.getElementById("aslanClose");
+      var partnerBadge = document.getElementById("aslanPartnerBadge");
+      var emailTranscriptBtn = document.getElementById("aslanEmailTranscript");
       var messagesEl = document.getElementById("aslanMessages");
       var input = document.getElementById("aslanInput");
       var sendBtn = document.getElementById("aslanSend");
@@ -352,10 +456,95 @@
         "Office location",
       ];
 
+      function _extractImageUrls(text) {
+        var out = [];
+        var lines = String(text || "").split(/\n/);
+        lines.forEach(function (ln) {
+          var m = ln.match(/^\s*IMAGE_URL:\s*(\S+)\s*$/i);
+          if (m && m[1]) out.push(m[1]);
+        });
+        return out;
+      }
+
+      function _extractFigureOptions(text) {
+        var out = [];
+        var lines = String(text || "").split(/\n/);
+        lines.forEach(function (ln) {
+          var m = ln.match(/^\s*FIGURE_OPTION:\s*([a-z0-9\-_.]+)\|(.*)$/i);
+          if (!m) return;
+          var id = (m[1] || "").trim();
+          var title = (m[2] || "").trim() || id;
+          if (id) out.push({ id: id, title: title });
+        });
+        return out;
+      }
+
+      function syncPartnerBadge() {
+        if (!partnerBadge) return;
+        var verified = !!getPartnerToken();
+        partnerBadge.classList.toggle("verified", verified);
+        if (verified) {
+          partnerBadge.innerHTML =
+            '<span class="picon-check" aria-hidden="true">&#10003;</span><span>Verified</span>';
+          partnerBadge.setAttribute("aria-label", "Verified partner");
+        } else {
+          partnerBadge.innerHTML =
+            '<span class="picon-dot" aria-hidden="true"></span><span>Partner</span>';
+          partnerBadge.setAttribute("aria-label", "Partner login");
+        }
+        if (emailTranscriptBtn) {
+          emailTranscriptBtn.style.display = verified ? "block" : "none";
+        }
+      }
+
       function appendMessage(role, text, isError) {
+        var raw = String(text || "");
+        if (role === "user") {
+          chatHistory.push({ role: "user", text: raw });
+        } else {
+          chatHistory.push({ role: "assistant", text: raw });
+        }
         var div = document.createElement("div");
         div.className = "msg " + (isError ? "error" : role === "user" ? "user" : "bot");
-        div.textContent = text;
+        var imageUrls = _extractImageUrls(raw);
+        var figureOptions = _extractFigureOptions(raw);
+        var clean = raw
+          .replace(/^\s*IMAGE_URL:\s*\S+\s*$/gim, "")
+          .replace(/^\s*FIGURE_OPTION:\s*([a-z0-9\-_.]+)\|(.*)$/gim, "")
+          .trim();
+        div.textContent = clean || raw;
+        imageUrls.forEach(function (u) {
+          var img = document.createElement("img");
+          img.className = "msg-image";
+          img.src = u;
+          img.alt = "Partner figure";
+          img.loading = "lazy";
+          div.appendChild(img);
+        });
+        if (figureOptions.length > 0) {
+          var wrap = document.createElement("div");
+          wrap.className = "figure-options";
+          figureOptions.forEach(function (opt) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.className = "figure-option-btn";
+            b.textContent = opt.title;
+            b.addEventListener("click", function () {
+              var tok = getPartnerToken();
+              if (!tok) {
+                appendMessage("bot", "Partner session expired. Please verify partner code again.", true);
+                return;
+              }
+              appendMessage("user", "Show image: " + opt.title);
+              appendMessage(
+                "bot",
+                "Figure: " + opt.title + "\nIMAGE_URL: " + "/partner/asset/" + encodeURIComponent(opt.id) + "?token=" + encodeURIComponent(tok)
+              );
+            });
+            wrap.appendChild(b);
+          });
+          div.appendChild(wrap);
+        }
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
@@ -474,14 +663,17 @@
         stopVoiceInput();
         hideTyping();
         messagesEl.innerHTML = "";
+        chatHistory = [];
         input.value = "";
         setLoading(false);
+        syncPartnerBadge();
       }
 
       function openPanelFresh() {
         resetChatUI();
         appendMessage("bot", WELCOME_TEXT);
         messagesEl.scrollTop = 0;
+        syncPartnerBadge();
       }
 
       function togglePanel(open) {
@@ -490,17 +682,94 @@
           openPanelFresh();
         } else if (!open && wasOpen) {
           resetChatUI();
+          // Partner auth is tied to this chat session only; closing ends it.
+          setPartnerToken(null);
+          syncPartnerBadge();
         }
         panel.classList.toggle("open", open);
         document.body.classList.toggle("aslan-chat-open", open);
       }
 
-      fab.addEventListener("click", function () {
-        togglePanel(!panel.classList.contains("open"));
-      });
-      closeBtn.addEventListener("click", function () {
+      async function postTranscriptEmail(email) {
+        var tok = getPartnerToken();
+        if (!tok) throw new Error("Partner session required");
+        var res = await fetch(API_BASE + "/email/chat-transcript", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            partner_token: tok,
+            to_email: email.trim(),
+            messages: chatHistory,
+          }),
+        });
+        var data = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) {
+          throw new Error(data.detail || res.statusText || "Email failed");
+        }
+        return data;
+      }
+
+      async function promptAndSendTranscript() {
+        var em = window.prompt("Email address for the chat transcript:");
+        if (!em || em.indexOf("@") < 0) return;
+        try {
+          await postTranscriptEmail(em);
+          window.alert("Transcript sent. Check your inbox.");
+        } catch (err) {
+          window.alert(err && err.message ? err.message : String(err));
+        }
+      }
+
+      async function closePanelWithOptionalEmail() {
+        var tok = getPartnerToken();
+        if (tok && chatHistory.length > 0) {
+          var offer = window.confirm(
+            "Send this chat transcript to your email before closing?\n\n" +
+              "채팅을 닫기 전에 대화 기록을 이메일로 보낼까요?"
+          );
+          if (offer) {
+            var em = window.prompt("Email address:");
+            if (em && em.indexOf("@") >= 0) {
+              try {
+                await postTranscriptEmail(em);
+                window.alert("Transcript sent.");
+              } catch (err) {
+                window.alert(err && err.message ? err.message : String(err));
+              }
+            }
+          }
+        }
         togglePanel(false);
+      }
+
+      fab.addEventListener("click", function () {
+        if (panel.classList.contains("open")) {
+          closePanelWithOptionalEmail();
+        } else {
+          togglePanel(true);
+        }
       });
+      closeBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        closePanelWithOptionalEmail();
+      });
+      if (partnerBadge) {
+        partnerBadge.addEventListener("click", function () {
+          if (getPartnerToken()) return;
+          appendMessage(
+            "bot",
+            "Please enter your Partner access ID in the message box below."
+          );
+          input.focus();
+        });
+      }
+      if (emailTranscriptBtn) {
+        emailTranscriptBtn.addEventListener("click", function () {
+          promptAndSendTranscript();
+        });
+      }
 
       async function sendMessage() {
         stopVoiceInput();
@@ -514,13 +783,21 @@
           var res = await fetch(API_BASE + "/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text, region_hint: null }),
+            body: JSON.stringify({
+              message: text,
+              region_hint: null,
+              partner_token: getPartnerToken(),
+            }),
           });
           var data = await res.json().catch(function () { return {}; });
           hideTyping();
           if (!res.ok) {
             appendMessage("bot", data.detail || res.statusText || "Request failed", true);
             return;
+          }
+          if (data.partner_authenticated && data.partner_token) {
+            setPartnerToken(data.partner_token);
+            syncPartnerBadge();
           }
           appendMessage("bot", data.reply || "(empty reply)");
         } catch (e) {
@@ -543,6 +820,7 @@
       });
 
       renderChips();
+      syncPartnerBadge();
     })();
   </script>
 </body>

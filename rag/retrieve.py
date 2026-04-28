@@ -105,6 +105,53 @@ def retrieve_prefetch_chunks(
     return []
 
 
+def retrieve_best_chunks_from(
+    query: str,
+    settings: Settings,
+    *,
+    collection_name: str,
+    base: RagFilters | None = None,
+) -> list[RetrievedChunk]:
+    """Same filter ladder as retrieve_best_chunks but targets an arbitrary collection."""
+    if base is None:
+        base = RagFilters()
+    qvec = embed_texts([query])[0]
+    attempts: list[RagFilters] = [
+        base,
+        RagFilters(
+            product=None,
+            language=base.language,
+            doc_type=base.doc_type,
+            department=base.department,
+            access=base.access,
+        ),
+        RagFilters(
+            product=None,
+            language=base.language,
+            doc_type=None,
+            department=None,
+            access=base.access,
+        ),
+        RagFilters(access=base.access),
+    ]
+    seen: set[str] = set()
+    for filt in attempts:
+        key = filt.model_dump_json(exclude_none=True)
+        if key in seen:
+            continue
+        seen.add(key)
+        found = search_chunks(
+            question_vector=qvec,
+            filters=filt,
+            top_k=settings.rag_search_top_k,
+            collection_name=collection_name,
+        )
+        best = rerank(query, found, settings.rag_final_top_k)
+        if best and best[0].score >= settings.rag_min_score:
+            return best
+    return []
+
+
 def format_chunks_for_tool(chunks: list[RetrievedChunk]) -> str:
     """Plain-text context for LLM tool result."""
     parts: list[str] = []

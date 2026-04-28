@@ -8,6 +8,8 @@ from rag.schemas import RagFilters, RetrievedChunk
 
 def get_client() -> QdrantClient:
     settings = get_settings()
+    if settings.qdrant_api_key:
+        return QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
     return QdrantClient(url=settings.qdrant_url)
 
 
@@ -16,13 +18,14 @@ def search_chunks(
     question_vector: list[float],
     filters: RagFilters | None,
     top_k: int,
+    collection_name: str | None = None,
 ) -> list[RetrievedChunk]:
     settings = get_settings()
     client = get_client()
     qf: rest.Filter | None = qdrant_filter(filters) if filters else None
 
     hits = client.query_points(
-        collection_name=settings.qdrant_collection,
+        collection_name=collection_name or settings.qdrant_collection,
         query=question_vector,
         limit=top_k,
         query_filter=qf,
