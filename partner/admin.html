@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
   <title>IRIS ID — Partner Admin</title>
   <style>
     :root {
@@ -96,8 +98,18 @@
       vertical-align: top;
     }
     th { background: #f1f5f9; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
-    tr.inactive { opacity: 0.55; }
     code { font-family: ui-monospace, monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; }
+    .status-pill {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: lowercase;
+    }
+    .status-pill.active { background: #dcfce7; color: #166534; }
+    .status-pill.inactive { background: #fee2e2; color: #991b1b; }
     .actions button {
       font-size: 0.75rem;
       padding: 0.25rem 0.45rem;
@@ -131,7 +143,7 @@
 </head>
 <body>
   <header>
-    <h1>Partner Admin</h1>
+    <h1>Partner Admin <span style="font-size:0.65rem;font-weight:500;opacity:0.85">UI v4</span></h1>
     <div class="auth-bar">
       <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
       <button type="button" id="btn-unlock">Unlock</button>
@@ -146,7 +158,6 @@
 
     <div class="toolbar">
       <button type="button" class="primary" id="btn-add">+ Add partner</button>
-      <label><input type="checkbox" id="show-inactive" /> Show inactive</label>
       <button type="button" id="btn-refresh">Refresh</button>
     </div>
 
@@ -162,6 +173,7 @@
             <th>Phone</th>
             <th>Code</th>
             <th>Source</th>
+            <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -201,6 +213,7 @@
     const KEY_STORAGE = "aslan_partner_admin_key";
     let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
     let regions = [];
+    let lastPartners = [];
 
     function headers() {
       return { "Content-Type": "application/json", "X-Partner-Admin-Key": adminKey };
@@ -214,10 +227,32 @@
       if (!err) setTimeout(() => b.classList.add("hidden"), 4000);
     }
 
+    function formatApiError(data, statusText) {
+      if (data.detail && typeof data.detail === "object" && !Array.isArray(data.detail)) {
+        return data.detail.message || JSON.stringify(data.detail);
+      }
+      if (typeof data.detail === "string") return data.detail;
+      if (Array.isArray(data.detail)) {
+        return data.detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
+      }
+      return statusText;
+    }
+
     async function api(path, opts = {}) {
-      const r = await fetch(API + path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+      const method = (opts.method || "GET").toUpperCase();
+      let url = API + path;
+      if (method === "GET") {
+        const sep = path.includes("?") ? "&" : "?";
+        url += sep + "_=" + Date.now();
+      }
+      const r = await fetch(url, { ...opts, headers: { ...headers(), ...(opts.headers || {}) }, cache: "no-store" });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : r.statusText);
+      if (!r.ok) {
+        const err = new Error(formatApiError(data, r.statusText));
+        err.status = r.status;
+        err.data = data;
+        throw err;
+      }
       return data;
     }
 
@@ -231,9 +266,9 @@
 
     function renderStats(s) {
       document.getElementById("stats").innerHTML = `
-        <div class="stat"><div class="n">${s.active_partners}</div><div class="l">Active partners</div></div>
-        <div class="stat"><div class="n">${s.codes_issued_active}</div><div class="l">Active codes</div></div>
-        <div class="stat"><div class="n">${s.total_partners_ever}</div><div class="l">Total ever registered</div></div>
+        <div class="stat"><div class="n">${s.active_partners}</div><div class="l">Active</div></div>
+        <div class="stat"><div class="n">${Math.max(0, (s.total_partners_ever || 0) - (s.active_partners || 0))}</div><div class="l">Inactive</div></div>
+        <div class="stat"><div class="n">${s.total_partners_ever}</div><div class="l">Total</div></div>
         <div class="stat"><div class="n">${s.signups}</div><div class="l">Self sign-ups</div></div>
         <div class="stat"><div class="n">${s.admin_created}</div><div class="l">Admin created</div></div>
       `;
@@ -246,13 +281,17 @@
     }
 
     function renderTable(partners) {
+      lastPartners = partners.slice();
       const tb = document.getElementById("tbody");
       if (!partners.length) {
-        tb.innerHTML = '<tr><td colspan="9">No partners found</td></tr>';
+        tb.innerHTML = '<tr><td colspan="10">No partners found</td></tr>';
         return;
       }
-      tb.innerHTML = partners.map((p) => `
-        <tr class="${p.active ? "" : "inactive"}">
+      tb.innerHTML = partners.map((p) => {
+        const active = partnerIsActive(p);
+        const status = active ? "active" : "inactive";
+        return `
+        <tr>
           <td>${p.id}</td>
           <td>${p.region_key}</td>
           <td>${esc(p.company)}</td>
@@ -261,27 +300,34 @@
           <td>${esc(p.phone || "—")}</td>
           <td><code>${esc(p.code)}</code></td>
           <td>${p.source}</td>
+          <td><span class="status-pill ${status}">${status}</span></td>
           <td class="actions">
             <button data-edit="${p.id}">Edit</button>
             <button data-regen="${p.id}">New code</button>
-            ${p.active ? `<button data-del="${p.id}">Deactivate</button>` : ""}
+            ${active
+              ? `<button data-del="${p.id}">Deactivate</button>`
+              : `<button data-reactivate="${p.id}">Reactivate</button>`}
           </td>
         </tr>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function esc(s) {
       return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
     }
 
+    function partnerIsActive(p) {
+      return p && (p.active === true || p.active === 1);
+    }
+
     async function refresh() {
-      const inc = document.getElementById("show-inactive").checked;
-      const [stats, list] = await Promise.all([
-        api("/api/partner/admin/stats"),
-        api("/api/partner/admin/partners?include_inactive=" + (inc ? "true" : "false")),
-      ]);
-      renderStats(stats);
-      renderTable(list.partners || []);
+      const data = await api("/api/partner/admin/dashboard", {
+        method: "POST",
+        body: JSON.stringify({ include_inactive: true }),
+      });
+      renderStats(data.stats || {});
+      renderTable(data.partners || []);
     }
 
     function openModal(mode, partner) {
@@ -294,19 +340,23 @@
       document.getElementById("f-region").value = partner?.region_key || (regions[0]?.key || "");
       document.getElementById("f-country").value = partner?.country_iso || "";
       document.getElementById("f-active-wrap").classList.toggle("hidden", mode === "add");
-      document.getElementById("f-active").checked = partner?.active !== false;
+      document.getElementById("f-active").checked = partner ? partnerIsActive(partner) : true;
       document.getElementById("modal").classList.remove("hidden");
     }
 
     function closeModal() {
       document.getElementById("modal").classList.add("hidden");
+      document.getElementById("f-id").value = "";
     }
 
     document.getElementById("btn-unlock").addEventListener("click", async () => {
       adminKey = document.getElementById("admin-key").value.trim();
       if (!adminKey) return;
       try {
-        await api("/api/partner/admin/stats");
+        await api("/api/partner/admin/dashboard", {
+          method: "POST",
+          body: JSON.stringify({ include_inactive: true }),
+        });
         sessionStorage.setItem(KEY_STORAGE, adminKey);
         document.getElementById("app").classList.remove("hidden");
         await loadRegions();
@@ -322,7 +372,6 @@
     }
 
     document.getElementById("btn-refresh").addEventListener("click", () => refresh().catch((e) => banner(e.message, true)));
-    document.getElementById("show-inactive").addEventListener("change", () => refresh().catch((e) => banner(e.message, true)));
     document.getElementById("btn-add").addEventListener("click", () => openModal("add"));
     document.getElementById("btn-cancel").addEventListener("click", closeModal);
 
@@ -338,17 +387,37 @@
         country_iso: document.getElementById("f-country").value.trim().toUpperCase() || null,
       };
       try {
+        let msg = "Saved";
         if (id) {
           body.active = document.getElementById("f-active").checked;
-          await api("/api/partner/admin/partners/" + id, { method: "PATCH", body: JSON.stringify(body) });
+          const res = await api("/api/partner/admin/partners/" + id + "/update", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          if (!res.partner) throw new Error("Update failed — server returned no partner record");
+          if (body.active && !partnerIsActive(res.partner)) {
+            const act = await api("/api/partner/admin/partners/" + id + "/activate", { method: "POST" });
+            if (act.partner) res.partner = act.partner;
+          }
+          msg = `Updated: ${res.partner.email} (${partnerIsActive(res.partner) ? "active" : "inactive"})`;
         } else {
           body.send_email = true;
-          await api("/api/partner/admin/partners", { method: "POST", body: JSON.stringify(body) });
+          const res = await api("/api/partner/admin/partners", { method: "POST", body: JSON.stringify(body) });
+          if (res.partner) {
+            msg = `Added: ${res.partner.name} <${res.partner.email}> — code ${res.partner.code}`;
+            if (res.email_warning) msg += ` (email warning: ${res.email_warning})`;
+          }
         }
         closeModal();
         await refresh();
-        banner("Saved", false);
+        banner(msg, false);
       } catch (err) {
+        if (err.status === 409 && err.data?.detail?.partner) {
+          await refresh();
+          openModal("edit", err.data.detail.partner);
+          banner((err.data.detail.message || err.message) + " — opened existing partner.", true);
+          return;
+        }
         banner(err.message, true);
       }
     });
@@ -356,21 +425,28 @@
     document.getElementById("tbody").addEventListener("click", async (e) => {
       const t = e.target;
       if (!(t instanceof HTMLButtonElement)) return;
-      const id = t.dataset.edit || t.dataset.regen || t.dataset.del;
+      const id = t.dataset.edit || t.dataset.regen || t.dataset.del || t.dataset.reactivate;
       if (!id) return;
       try {
         if (t.dataset.edit) {
-          const list = await api("/api/partner/admin/partners?include_inactive=true");
-          const p = (list.partners || []).find((x) => String(x.id) === id);
+          let p = lastPartners.find((x) => String(x.id) === id);
+          if (!p) {
+            await refresh();
+            p = lastPartners.find((x) => String(x.id) === id);
+          }
           if (p) openModal("edit", p);
         } else if (t.dataset.regen) {
           if (!confirm("Generate a new access code and email it to the partner?")) return;
           await api("/api/partner/admin/partners/" + id + "/regenerate-code?send_email=true", { method: "POST" });
           await refresh();
           banner("New code sent", false);
+        } else if (t.dataset.reactivate) {
+          await api("/api/partner/admin/partners/" + id + "/activate", { method: "POST" });
+          await refresh();
+          banner("Partner reactivated", false);
         } else if (t.dataset.del) {
           if (!confirm("Deactivate this partner? Their code will stop working.")) return;
-          await api("/api/partner/admin/partners/" + id, { method: "DELETE" });
+          await api("/api/partner/admin/partners/" + id + "/deactivate", { method: "POST" });
           await refresh();
           banner("Partner deactivated", false);
         }

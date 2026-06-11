@@ -1,0 +1,17 @@
+[Unit]
+Description=ASLAN FastAPI (uvicorn)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=USER
+Group=USER
+WorkingDirectory=/home/USER/apps/aslan
+Environment=PATH=/home/USER/apps/aslan/.venv/bin
+ExecStart=/home/USER/apps/aslan/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

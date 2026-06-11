@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import RedirectResponse
@@ -101,14 +101,65 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-if _PARTNER_DIR.is_dir():
-    app.mount(
-        "/partner",
-        StaticFiles(directory=str(_PARTNER_DIR), html=True),
-        name="partner",
+_PARTNER_UI_VERSION = "2026-06-11-v4"
+_PARTNER_ADMIN_PATH = "/partner/manage"
+_NO_CACHE_HTML = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+def _partner_html(filename: str) -> FileResponse:
+    path = _PARTNER_DIR / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Partner page not found: {filename}")
+    return FileResponse(
+        path=str(path),
+        media_type="text/html; charset=utf-8",
+        headers={**_NO_CACHE_HTML, "X-Partner-UI-Version": _PARTNER_UI_VERSION},
     )
 
+
+def _partner_redirect(url: str) -> RedirectResponse:
+    return RedirectResponse(
+        url=url,
+        status_code=302,
+        headers=_NO_CACHE_HTML,
+    )
+
+
+if _PARTNER_DIR.is_dir():
+
+    @app.get(_PARTNER_ADMIN_PATH, include_in_schema=False)
+    def partner_admin_page() -> FileResponse:
+        """Canonical admin URL (avoid stale CDN/Apache cache on /partner/admin.html)."""
+        return _partner_html("admin.html")
+
+    @app.get("/partner/admin.html", include_in_schema=False)
+    def partner_admin_page_legacy() -> RedirectResponse:
+        return _partner_redirect(_PARTNER_ADMIN_PATH)
+
+    @app.get("/partner/register.html", include_in_schema=False)
+    def partner_register_page() -> FileResponse:
+        return _partner_html("register.html")
+
+    @app.get("/partner/", include_in_schema=False)
+    @app.get("/partner", include_in_schema=False)
+    def partner_portal_index() -> FileResponse:
+        return _partner_html("index.html")
+
 app.include_router(partner_registry_router)
+
+
+@app.middleware("http")
+async def _no_cache_partner_api(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/api/partner") or path.startswith("/partner/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.get("/")
@@ -141,18 +192,59 @@ def health_config() -> dict[str, Any]:
         or bool((s.resend_api_key and s.resend_from) or (s.smtp_host and s.smtp_from)),
         "process_cwd": os.getcwd(),
         "repo_root": str(Path(__file__).resolve().parents[1]),
+        ** _partner_registry_health(),
+        "partner_ui_version": _PARTNER_UI_VERSION,
+        "partner_admin_url": _PARTNER_ADMIN_PATH,
+        "partner_admin_html": _partner_portal_file_info("admin.html"),
     }
+
+
+def _partner_portal_file_info(filename: str) -> dict[str, Any] | None:
+    path = _PARTNER_DIR / filename
+    if not path.is_file():
+        return None
+    st = path.stat()
+    return {
+        "path": str(path),
+        "size_bytes": st.st_size,
+        "mtime_unix": int(st.st_mtime),
+    }
+
+
+def _partner_registry_health() -> dict[str, Any]:
+    try:
+        from app.partner_db import admin_stats, partner_db_path
+
+        return {
+            "partner_db_path": str(partner_db_path()),
+            "partner_stats": admin_stats(),
+        }
+    except Exception as exc:
+        return {"partner_db_error": exc.__class__.__name__}
 
 
 @app.on_event("startup")
 def _log_config_on_startup() -> None:
     init_db()
     s = get_settings()
-    logging.getLogger("uvicorn.error").info(
+    log = logging.getLogger("uvicorn.error")
+    log.info(
         "ASLAN: LLM_PROVIDER=%s GEMINI_CHAT_MODEL=%s (open .env under repo root, not cwd)",
         s.llm_provider,
         s.gemini_chat_model,
     )
+    try:
+        from app.partner_db import admin_dashboard_data, partner_db_path
+
+        dash = admin_dashboard_data(include_inactive=True)
+        log.info(
+            "Partner DB: path=%s partners=%s active=%s",
+            partner_db_path(),
+            dash["stats"]["total_partners_ever"],
+            dash["stats"]["active_partners"],
+        )
+    except Exception as exc:
+        log.warning("Partner DB startup check failed: %s", exc)
 
 
 @app.post("/chat", response_model=ChatResponse)

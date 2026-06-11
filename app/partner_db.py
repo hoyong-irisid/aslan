@@ -108,7 +108,7 @@ def is_active_code(code: str) -> bool:
         return False
     with _conn() as con:
         row = con.execute(
-            "SELECT 1 FROM partners WHERE code = ? AND active = 1 LIMIT 1",
+            f"SELECT 1 FROM partners WHERE code = ? AND {_is_active_sql()} LIMIT 1",
             (c,),
         ).fetchone()
     return row is not None
@@ -128,6 +128,26 @@ def count_all_partners() -> int:
     return int(row["n"]) if row else 0
 
 
+def _normalize_active(value: object) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return int(value) != 0
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in ("0", "false", "no", "off", ""):
+            return False
+        if v in ("1", "true", "yes", "on"):
+            return True
+    return bool(value)
+
+
+def _active_int(value: object) -> int:
+    return 1 if _normalize_active(value) else 0
+
+
 def row_to_partner(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -138,7 +158,7 @@ def row_to_partner(row: sqlite3.Row) -> dict[str, Any]:
         "region_key": row["region_key"],
         "country_iso": row["country_iso"],
         "code": row["code"],
-        "active": bool(row["active"]),
+        "active": _normalize_active(row["active"]),
         "source": row["source"],
         "verified_at": row["verified_at"],
         "created_at": row["created_at"],
@@ -163,34 +183,40 @@ def get_partner(partner_id: int) -> dict[str, Any] | None:
     return row_to_partner(row) if row else None
 
 
+def _is_active_sql() -> str:
+    """Treat any non-zero active flag as active (SQLite bool quirks)."""
+    return "COALESCE(active, 0) != 0"
+
+
 def list_partners(*, include_inactive: bool = False) -> list[dict[str, Any]]:
     q = "SELECT * FROM partners"
     if not include_inactive:
-        q += " WHERE active = 1"
-    q += " ORDER BY region_key, company, name"
+        q += f" WHERE {_is_active_sql()}"
+    q += " ORDER BY id, region_key, company, name"
     with _conn() as con:
         rows = con.execute(q).fetchall()
     return [row_to_partner(r) for r in rows]
 
 
 def admin_stats() -> dict[str, Any]:
+    active_sql = _is_active_sql()
     with _conn() as con:
         active = con.execute(
-            "SELECT COUNT(*) AS n FROM partners WHERE active = 1"
+            f"SELECT COUNT(*) AS n FROM partners WHERE {active_sql}"
         ).fetchone()["n"]
         total = con.execute("SELECT COUNT(*) AS n FROM partners").fetchone()["n"]
         by_region = con.execute(
-            """
+            f"""
             SELECT region_key, COUNT(*) AS n
-            FROM partners WHERE active = 1
+            FROM partners WHERE {active_sql}
             GROUP BY region_key ORDER BY region_key
             """
         ).fetchall()
         signup = con.execute(
-            "SELECT COUNT(*) AS n FROM partners WHERE source = 'signup' AND active = 1"
+            f"SELECT COUNT(*) AS n FROM partners WHERE source = 'signup' AND {active_sql}"
         ).fetchone()["n"]
         admin_added = con.execute(
-            "SELECT COUNT(*) AS n FROM partners WHERE source = 'admin' AND active = 1"
+            f"SELECT COUNT(*) AS n FROM partners WHERE source = 'admin' AND {active_sql}"
         ).fetchone()["n"]
     return {
         "active_partners": int(active),
@@ -199,6 +225,52 @@ def admin_stats() -> dict[str, Any]:
         "signups": int(signup),
         "admin_created": int(admin_added),
         "by_region": {r["region_key"]: int(r["n"]) for r in by_region},
+    }
+
+
+def admin_dashboard_data(*, include_inactive: bool = True) -> dict[str, Any]:
+    """Stats + partner list in one DB read (used by POST dashboard; avoids stale GET caches)."""
+    active_sql = _is_active_sql()
+    with _conn() as con:
+        total = int(con.execute("SELECT COUNT(*) AS n FROM partners").fetchone()["n"])
+        active = int(
+            con.execute(f"SELECT COUNT(*) AS n FROM partners WHERE {active_sql}").fetchone()["n"]
+        )
+        by_region_rows = con.execute(
+            f"""
+            SELECT region_key, COUNT(*) AS n
+            FROM partners WHERE {active_sql}
+            GROUP BY region_key ORDER BY region_key
+            """
+        ).fetchall()
+        signup = int(
+            con.execute(
+                f"SELECT COUNT(*) AS n FROM partners WHERE source = 'signup' AND {active_sql}"
+            ).fetchone()["n"]
+        )
+        admin_added = int(
+            con.execute(
+                f"SELECT COUNT(*) AS n FROM partners WHERE source = 'admin' AND {active_sql}"
+            ).fetchone()["n"]
+        )
+        q = "SELECT * FROM partners"
+        if not include_inactive:
+            q += f" WHERE {active_sql}"
+        q += " ORDER BY id, region_key, company, name"
+        partner_rows = con.execute(q).fetchall()
+
+    partners = [row_to_partner(r) for r in partner_rows]
+    return {
+        "db_path": str(partner_db_path()),
+        "stats": {
+            "active_partners": active,
+            "total_partners_ever": total,
+            "codes_issued_active": active,
+            "signups": signup,
+            "admin_created": admin_added,
+            "by_region": {r["region_key"]: int(r["n"]) for r in by_region_rows},
+        },
+        "partners": partners,
     }
 
 
@@ -263,7 +335,10 @@ def insert_partner(
     e = normalize_email(email)
     existing = get_partner_by_email(e)
     if existing and existing["active"]:
-        raise ValueError("A partner account with this email already exists")
+        raise ValueError(
+            f"This email is already registered (partner id {existing['id']}, "
+            f"code {existing['code']}). Use Edit on that row instead of Add."
+        )
     c = (code or generate_partner_code()).strip().upper()
     now = _utc_now()
     with _conn() as con:
@@ -327,7 +402,7 @@ def update_partner(partner_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     if "country_iso" in updates and updates["country_iso"]:
         updates["country_iso"] = str(updates["country_iso"]).strip().upper()
     if "active" in updates:
-        updates["active"] = 1 if updates["active"] else 0
+        updates["active"] = _active_int(updates["active"])
     sets = ", ".join(f"{k} = ?" for k in updates)
     vals = list(updates.values()) + [_utc_now(), partner_id]
     with _conn() as con:
@@ -341,12 +416,28 @@ def update_partner(partner_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def deactivate_partner(partner_id: int) -> None:
+def activate_partner(partner_id: int) -> dict[str, Any]:
+    with _conn() as con:
+        con.execute(
+            "UPDATE partners SET active = 1, updated_at = ? WHERE id = ?",
+            (_utc_now(), partner_id),
+        )
+    out = get_partner(partner_id)
+    if out is None:
+        raise ValueError("Partner not found")
+    return out
+
+
+def deactivate_partner(partner_id: int) -> dict[str, Any]:
     with _conn() as con:
         con.execute(
             "UPDATE partners SET active = 0, updated_at = ? WHERE id = ?",
             (_utc_now(), partner_id),
         )
+    out = get_partner(partner_id)
+    if out is None:
+        raise ValueError("Partner not found")
+    return out
 
 
 def regenerate_code(partner_id: int) -> dict[str, Any]:

@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app.contacts import load_contacts
 from app.partner_db import (
+    activate_partner,
+    admin_dashboard_data,
     admin_stats,
     consume_otp,
     create_otp_challenge,
@@ -51,6 +56,10 @@ class AdminPartnerCreate(BaseModel):
     region_key: str = Field(min_length=1, max_length=80)
     country_iso: str | None = Field(default=None, max_length=2)
     send_email: bool = True
+
+
+class AdminDashboardRequest(BaseModel):
+    include_inactive: bool = True
 
 
 class AdminPartnerUpdate(BaseModel):
@@ -209,6 +218,18 @@ def signup_verify(body: SignupVerifyRequest) -> dict[str, Any]:
     }
 
 
+@router.post("/admin/dashboard")
+def admin_dashboard(
+    body: AdminDashboardRequest | None = None,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    """Live stats + partner list (POST avoids reverse-proxy GET caching)."""
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    req = body or AdminDashboardRequest()
+    return admin_dashboard_data(include_inactive=req.include_inactive)
+
+
 @router.get("/admin/stats")
 def admin_get_stats(
     x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
@@ -238,8 +259,9 @@ def admin_create_partner(
     _require_admin(x_partner_admin_key, settings)
     _validate_region(body.region_key)
     try:
+        email = normalize_email(body.email)
         partner = insert_partner(
-            email=body.email,
+            email=email,
             name=body.name,
             company=body.company,
             phone=body.phone,
@@ -248,7 +270,23 @@ def admin_create_partner(
             source="admin",
         )
     except ValueError as e:
+        existing = get_partner_by_email(body.email)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": str(e),
+                    "partner": existing,
+                },
+            ) from e
         raise HTTPException(status_code=409, detail=str(e)) from e
+
+    logger.info(
+        "Admin created partner id=%s email=%s code=%s",
+        partner["id"],
+        partner["email"],
+        partner["code"],
+    )
 
     email_warning = None
     if body.send_email:
@@ -268,14 +306,11 @@ def admin_create_partner(
     return out
 
 
-@router.patch("/admin/partners/{partner_id}")
-def admin_update_partner(
+def _admin_update_partner_impl(
     partner_id: int,
     body: AdminPartnerUpdate,
-    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+    settings: Settings,
 ) -> dict[str, Any]:
-    settings = get_settings()
-    _require_admin(x_partner_admin_key, settings)
     if get_partner(partner_id) is None:
         raise HTTPException(status_code=404, detail="Partner not found")
     fields = body.model_dump(exclude_unset=True)
@@ -285,6 +320,63 @@ def admin_update_partner(
         partner = update_partner(partner_id, fields)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    logger.info(
+        "Admin updated partner id=%s email=%s active=%s",
+        partner["id"],
+        partner["email"],
+        partner["active"],
+    )
+    return {"partner": partner}
+
+
+@router.patch("/admin/partners/{partner_id}")
+def admin_update_partner(
+    partner_id: int,
+    body: AdminPartnerUpdate,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    return _admin_update_partner_impl(partner_id, body, settings)
+
+
+@router.post("/admin/partners/{partner_id}/update")
+def admin_update_partner_post(
+    partner_id: int,
+    body: AdminPartnerUpdate,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    """POST alias for update (some Apache/cPanel proxies block PATCH)."""
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    return _admin_update_partner_impl(partner_id, body, settings)
+
+
+@router.post("/admin/partners/{partner_id}/activate")
+def admin_activate_partner(
+    partner_id: int,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    try:
+        partner = activate_partner(partner_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return {"partner": partner}
+
+
+@router.post("/admin/partners/{partner_id}/deactivate")
+def admin_deactivate_partner_post(
+    partner_id: int,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    try:
+        partner = deactivate_partner(partner_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return {"partner": partner}
 
 
@@ -322,5 +414,8 @@ def admin_delete_partner(
     _require_admin(x_partner_admin_key, settings)
     if get_partner(partner_id) is None:
         raise HTTPException(status_code=404, detail="Partner not found")
-    deactivate_partner(partner_id)
-    return {"status": "deactivated"}
+    try:
+        partner = deactivate_partner(partner_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return {"status": "deactivated", "partner": partner}

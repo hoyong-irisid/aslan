@@ -1,0 +1,36 @@
+# chat-api.irisid.com → ASLAN uvicorn on 127.0.0.1:8010
+# Add via cPanel domain Apache Include, or WHM → Apache Configuration.
+# Replace USER if paths differ.
+
+<VirtualHost *:443>
+    ServerName chat-api.irisid.com
+
+    SSLEngine on
+    # cPanel AutoSSL usually sets SSLCertificateFile paths automatically
+    # in the main vhost; if using Include only, keep ServerName and proxy below.
+
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:8010/ nocanon
+    ProxyPassReverse / http://127.0.0.1:8010/
+
+    # Do not cache partner portal HTML/API (InMotion often caches GET otherwise).
+    <LocationMatch "^/(partner/|api/partner/)">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+    </LocationMatch>
+
+    # WebSocket (if needed later)
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/?(.*) ws://127.0.0.1:8010/$1 [P,L]
+
+    ErrorLog /home/USER/logs/chat-api-error.log
+    CustomLog /home/USER/logs/chat-api-access.log combined
+</VirtualHost>
+
+<VirtualHost *:80>
+    ServerName chat-api.irisid.com
+    RewriteEngine On
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</VirtualHost>
