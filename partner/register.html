@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IRIS ID — Partner Registration</title>
+  <style>
+    :root {
+      --iris-slate: #475569;
+      --iris-dark: #1e293b;
+      --iris-accent: #0ea5e9;
+      --iris-bg: #f8fafc;
+      --iris-border: #e2e8f0;
+      --iris-success: #059669;
+      --iris-error: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--iris-bg);
+      color: var(--iris-dark);
+      line-height: 1.5;
+    }
+    header {
+      background: var(--iris-slate);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+    }
+    header h1 { margin: 0; font-size: 1.35rem; font-weight: 600; }
+    header p { margin: 0.35rem 0 0; opacity: 0.9; font-size: 0.95rem; }
+    main {
+      max-width: 520px;
+      margin: 2rem auto;
+      padding: 0 1rem 3rem;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .steps { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+    .step {
+      flex: 1;
+      text-align: center;
+      font-size: 0.75rem;
+      padding: 0.4rem;
+      border-radius: 6px;
+      background: #f1f5f9;
+      color: #64748b;
+    }
+    .step.active { background: var(--iris-slate); color: #fff; }
+    .step.done { background: #dbeafe; color: #1d4ed8; }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin: 0.75rem 0 0.35rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    input:focus, select:focus {
+      outline: 2px solid var(--iris-accent);
+      border-color: var(--iris-accent);
+    }
+    .hint { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+    button {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: var(--iris-slate);
+      color: #fff;
+    }
+    button:hover { background: var(--iris-dark); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .msg.error { background: #fef2f2; color: var(--iris-error); border: 1px solid #fecaca; }
+    .msg.ok { background: #ecfdf5; color: var(--iris-success); border: 1px solid #a7f3d0; }
+    .hidden { display: none !important; }
+    .code-box {
+      margin-top: 1rem;
+      padding: 1rem;
+      text-align: center;
+      font-family: ui-monospace, monospace;
+      font-size: 1.75rem;
+      letter-spacing: 0.2em;
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 2rem;
+    }
+    a { color: var(--iris-accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IRIS ID Partner Program</h1>
+    <p>Register for partner-only technical documentation access</p>
+  </header>
+  <main>
+    <div class="steps">
+      <div class="step active" id="step1">1. Details</div>
+      <div class="step" id="step2">2. Verify email</div>
+      <div class="step" id="step3">3. Access code</div>
+    </div>
+
+    <div class="card" id="panel-signup">
+      <form id="form-signup">
+        <label for="email">Email *</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+
+        <label for="name">Full name *</label>
+        <input type="text" id="name" name="name" required autocomplete="name" />
+
+        <label for="company">Company *</label>
+        <input type="text" id="company" name="company" required autocomplete="organization" />
+
+        <label for="phone">Phone (optional)</label>
+        <input type="tel" id="phone" name="phone" autocomplete="tel" />
+
+        <label for="region_key">Region *</label>
+        <select id="region_key" name="region_key" required>
+          <option value="">Loading regions…</option>
+        </select>
+
+        <label for="country_iso">Country (optional, ISO code e.g. AE, KR)</label>
+        <input type="text" id="country_iso" name="country_iso" maxlength="2" pattern="[A-Za-z]{0,2}" />
+
+        <button type="submit" id="btn-signup">Send verification code</button>
+      </form>
+      <div id="msg-signup" class="msg hidden"></div>
+    </div>
+
+    <div class="card hidden" id="panel-verify">
+      <p>We sent a 6-digit code to <strong id="verify-email"></strong>.</p>
+      <form id="form-verify">
+        <label for="otp">Verification code *</label>
+        <input type="text" id="otp" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" />
+        <button type="submit" id="btn-verify">Verify &amp; get partner code</button>
+      </form>
+      <p class="hint"><a href="#" id="link-back">← Edit registration details</a></p>
+      <div id="msg-verify" class="msg hidden"></div>
+    </div>
+
+    <div class="card hidden" id="panel-done">
+      <div class="msg ok">Registration complete. Your partner access code has been emailed to you.</div>
+      <p>Use this code in the <strong>IRIS ID Assistant</strong> chat (Partner button) to unlock partner manuals.</p>
+      <div class="code-box hidden" id="code-display"></div>
+      <p class="hint">Keep your code confidential. Need help? Contact your regional IRIS ID representative.</p>
+    </div>
+  </main>
+  <footer>© IRIS ID — Partner portal</footer>
+
+  <script>
+    const API = window.location.origin;
+
+    function showMsg(el, text, ok) {
+      el.textContent = text;
+      el.className = "msg " + (ok ? "ok" : "error");
+      el.classList.remove("hidden");
+    }
+
+    function setStep(n) {
+      ["step1", "step2", "step3"].forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.classList.remove("active", "done");
+        if (i + 1 < n) el.classList.add("done");
+        else if (i + 1 === n) el.classList.add("active");
+      });
+    }
+
+    async function loadRegions() {
+      const sel = document.getElementById("region_key");
+      try {
+        const r = await fetch(API + "/api/partner/regions");
+        const data = await r.json();
+        sel.innerHTML = "";
+        for (const reg of data.regions || []) {
+          const opt = document.createElement("option");
+          opt.value = reg.key;
+          opt.textContent = reg.label;
+          sel.appendChild(opt);
+        }
+        if (data.default_region) sel.value = data.default_region;
+      } catch (e) {
+        sel.innerHTML = '<option value="global">Global / Other</option>';
+      }
+    }
+
+    let pendingEmail = "";
+
+    document.getElementById("form-signup").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-signup");
+      const msg = document.getElementById("msg-signup");
+      msg.classList.add("hidden");
+      btn.disabled = true;
+      const body = {
+        email: document.getElementById("email").value.trim(),
+        name: document.getElementById("name").value.trim(),
+        company: document.getElementById("company").value.trim(),
+        phone: document.getElementById("phone").value.trim() || null,
+        region_key: document.getElementById("region_key").value,
+        country_iso: document.getElementById("country_iso").value.trim().toUpperCase() || null,
+      };
+      try {
+        const r = await fetch(API + "/api/partner/signup/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.detail || r.statusText);
+        pendingEmail = body.email;
+        document.getElementById("verify-email").textContent = body.email;
+        document.getElementById("panel-signup").classList.add("hidden");
+        document.getElementById("panel-verify").classList.remove("hidden");
+        setStep(2);
+      } catch (err) {
+        showMsg(msg, err.message || "Request failed", false);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("form-verify").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-verify");
+      const msg = document.getElementById("msg-verify");
+      msg.classList.add("hidden");
+      btn.disabled = true;
+      try {
+        const r = await fetch(API + "/api/partner/signup/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: pendingEmail, otp: document.getElementById("otp").value.trim() }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.detail || r.statusText);
+        document.getElementById("panel-verify").classList.add("hidden");
+        document.getElementById("panel-done").classList.remove("hidden");
+        setStep(3);
+        if (data.code) {
+          const box = document.getElementById("code-display");
+          box.textContent = data.code;
+          box.classList.remove("hidden");
+        }
+        if (data.email_warning) {
+          showMsg(msg, data.email_warning, false);
+        }
+      } catch (err) {
+        showMsg(msg, err.message || "Verification failed", false);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("link-back").addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("panel-verify").classList.add("hidden");
+      document.getElementById("panel-signup").classList.remove("hidden");
+      setStep(1);
+    });
+
+    loadRegions();
+  </script>
+</body>
+</html>

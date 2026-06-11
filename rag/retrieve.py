@@ -11,9 +11,12 @@ def retrieve_best_chunks(
     query: str,
     settings: Settings,
     base: RagFilters | None = None,
+    *,
+    exclude_partner: bool = True,
 ) -> list[RetrievedChunk]:
     """
     Qdrant search with progressively looser metadata filters (same strategy as legacy router path).
+    Public callers should keep exclude_partner=True so partner-tagged chunks never leak.
     """
     if base is None:
         base = RagFilters()
@@ -44,6 +47,7 @@ def retrieve_best_chunks(
             question_vector=qvec,
             filters=filt,
             top_k=settings.rag_search_top_k,
+            exclude_partner=exclude_partner,
         )
         best = rerank(query, found, settings.rag_final_top_k)
         if best and best[0].score >= settings.rag_min_score:
@@ -55,6 +59,8 @@ def retrieve_prefetch_chunks(
     query: str,
     settings: Settings,
     base: RagFilters | None = None,
+    *,
+    exclude_partner: bool = True,
 ) -> list[RetrievedChunk]:
     """
     Prefer authoritative KB text for product questions even when scores sit slightly below rag_min_score.
@@ -91,6 +97,7 @@ def retrieve_prefetch_chunks(
             question_vector=qvec,
             filters=filt,
             top_k=settings.rag_search_top_k,
+            exclude_partner=exclude_partner,
         )
         best = rerank(query, found, settings.rag_final_top_k)
         if not best:

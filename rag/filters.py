@@ -3,8 +3,9 @@ from qdrant_client.http import models as rest
 from rag.schemas import RagFilters
 
 
-def qdrant_filter(f: RagFilters) -> rest.Filter | None:
+def qdrant_filter(f: RagFilters, *, exclude_partner: bool = False) -> rest.Filter | None:
     must: list[rest.FieldCondition] = []
+    must_not: list[rest.FieldCondition] = []
     if f.product:
         must.append(rest.FieldCondition(key="product", match=rest.MatchValue(value=f.product)))
     if f.language:
@@ -19,6 +20,10 @@ def qdrant_filter(f: RagFilters) -> rest.Filter | None:
         must.append(rest.FieldCondition(key="version", match=rest.MatchValue(value=f.version)))
     if f.access:
         must.append(rest.FieldCondition(key="access", match=rest.MatchValue(value=f.access)))
-    if not must:
+    if exclude_partner:
+        must_not.append(
+            rest.FieldCondition(key="access", match=rest.MatchValue(value="partner"))
+        )
+    if not must and not must_not:
         return None
-    return rest.Filter(must=must)
+    return rest.Filter(must=must or None, must_not=must_not or None)

@@ -14,8 +14,10 @@ from pydantic import BaseModel, Field
 
 from app.email_transcript import send_chat_transcript
 from app.handlers import handle_chat
-from app.partner import is_partner_session
+from app.partner import is_partner_session, partner_enabled
 from app.partner_assets import resolve_asset_file
+from app.partner_db import init_db
+from app.partner_routes import router as partner_registry_router
 from app.web_search import web_search_configured
 from config.settings import get_settings
 
@@ -98,6 +100,16 @@ app.mount(
     name="widget",
 )
 
+_PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
+if _PARTNER_DIR.is_dir():
+    app.mount(
+        "/partner",
+        StaticFiles(directory=str(_PARTNER_DIR), html=True),
+        name="partner",
+    )
+
+app.include_router(partner_registry_router)
+
 
 @app.get("/")
 def root() -> RedirectResponse:
@@ -124,6 +136,9 @@ def health_config() -> dict[str, Any]:
             (s.resend_api_key and s.resend_from)
             or (s.smtp_host and s.smtp_from)
         ),
+        "partner_auth_enabled": partner_enabled(),
+        "partner_registry_enabled": bool((s.partner_admin_api_key or "").strip())
+        or bool((s.resend_api_key and s.resend_from) or (s.smtp_host and s.smtp_from)),
         "process_cwd": os.getcwd(),
         "repo_root": str(Path(__file__).resolve().parents[1]),
     }
@@ -131,6 +146,7 @@ def health_config() -> dict[str, Any]:
 
 @app.on_event("startup")
 def _log_config_on_startup() -> None:
+    init_db()
     s = get_settings()
     logging.getLogger("uvicorn.error").info(
         "ASLAN: LLM_PROVIDER=%s GEMINI_CHAT_MODEL=%s (open .env under repo root, not cwd)",

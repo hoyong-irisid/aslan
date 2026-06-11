@@ -19,10 +19,13 @@ def search_chunks(
     filters: RagFilters | None,
     top_k: int,
     collection_name: str | None = None,
+    exclude_partner: bool = False,
 ) -> list[RetrievedChunk]:
     settings = get_settings()
     client = get_client()
-    qf: rest.Filter | None = qdrant_filter(filters) if filters else None
+    qf: rest.Filter | None = None
+    if filters is not None or exclude_partner:
+        qf = qdrant_filter(filters or RagFilters(), exclude_partner=exclude_partner)
 
     hits = client.query_points(
         collection_name=collection_name or settings.qdrant_collection,

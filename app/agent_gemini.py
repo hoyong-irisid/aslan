@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from app.contacts import resolve_region
+from app.partner import is_partner_corpus_source
 from app.partner_assets import resolve_figure_by_query, resolve_figure_candidates
 from app.query_hints import looks_like_kb_or_product_query
 from app.web_search import run_web_search
@@ -103,8 +104,10 @@ _TOOL_PARTNER_FIGURE: dict[str, Any] = {
 }
 
 
-def _tool_declarations(*, is_partner: bool) -> list[dict[str, Any]]:
-    decls: list[dict[str, Any]] = [_TOOL_SEARCH_COMPANY, _TOOL_WEB_SEARCH]
+def _tool_declarations(*, is_partner: bool, allow_web_search: bool = True) -> list[dict[str, Any]]:
+    decls: list[dict[str, Any]] = [_TOOL_SEARCH_COMPANY]
+    if allow_web_search:
+        decls.append(_TOOL_WEB_SEARCH)
     if is_partner:
         decls.append(_TOOL_SEARCH_PARTNER)
         decls.append(_TOOL_PARTNER_FIGURE)
@@ -150,18 +153,21 @@ If the block does not cover their exact question (wrong product, empty, or only 
         partner_section = (
             "\nPUBLIC MODE: This user is NOT authenticated as a partner.\n"
             "- Do not use `search_partner_knowledge` (it is unavailable).\n"
-            "- Answer only from public sources: `search_company_knowledge` and `web_search`.\n"
-            "- If the user asks for internal/manual-level IRIS info you cannot give publicly, tell them "
-            "that this information is available to verified Iris ID partners and invite them to enter "
-            "their partner access code to continue.\n"
+            "- Answer only from `search_company_knowledge` (public ingested docs).\n"
+            "- Do NOT use `web_search` for Iris product manuals, internal specs, installation steps, "
+            "or version/history details — those require partner verification.\n"
+            "- If the user asks for internal/manual-level IRIS info you cannot give from public KB, "
+            "tell them this information is for verified Iris ID partners and ask them to enter "
+            "their partner access code (Partner button) or send the code in chat.\n"
+            "- Do not answer manual-level questions from general knowledge or the public web.\n"
         )
     return f"""You are IRIS ID's website assistant.
 Rules:
 - Match the user's language when you reply.
 {kb_section}{partner_section}
-- For Iris ID models/products (e.g. \"what is iA1000?\"): if partner mode, call `search_partner_knowledge` first; otherwise call `search_company_knowledge`. If snippets are empty or clearly off-topic, call `web_search` with an IRIS-focused query — public homepage/product pages are valid for high-level \"what is this\". Do not fabricate precise technical specs absent from KB or search results.
-- If pre-loaded KB above is empty and the user needs IRIS facts: still call the appropriate search tool, then `web_search` if needed as above.
-- Use `web_search` for clearly external topics too (news, non-IRIS general facts, competitors).
+- For Iris ID models/products: if partner mode, call `search_partner_knowledge` first; otherwise call `search_company_knowledge` only. Do not use web_search for product/manual questions unless the user is a verified partner.
+- If pre-loaded KB above is empty and the user needs IRIS facts: call `search_company_knowledge`; if still empty, ask them to verify as a partner for manual-level details (do not guess from the web).
+- Use `web_search` only for clearly external topics (news, non-IRIS general facts, competitors) when web search is available.
 - For casual chat with no factual lookup, answer directly without tools.
 - Never give specific prices or formal quotes. For pricing / purchase intent, tell the user to contact sales: {sales}
 - For severe incidents or hands-on repair, suggest support: {sup}
@@ -194,6 +200,7 @@ def _parts_from_candidate(data: dict[str, Any]) -> list[dict[str, Any]]:
 def _execute_search_tool(query: str, settings: Settings, language_iso: str) -> str:
     base = RagFilters(language=language_iso)
     chunks = retrieve_best_chunks(query.strip() or query, settings, base)
+    chunks = [c for c in chunks if not is_partner_corpus_source(c.metadata)]
     return format_chunks_for_tool(chunks)
 
 
@@ -225,13 +232,16 @@ def run_gemini_agent(
 ) -> str:
     settings = get_settings()
     kb_prefetch: str | None = None
-    if looks_like_kb_or_product_query(user_message):
+    productish = looks_like_kb_or_product_query(user_message)
+    allow_web_search = is_partner or not productish
+    if productish:
         try:
             pre = retrieve_prefetch_chunks(
                 user_message,
                 settings,
                 RagFilters(language=language_iso),
             )
+            pre = [c for c in pre if not is_partner_corpus_source(c.metadata)]
             if pre:
                 kb_prefetch = format_chunks_for_tool(pre)
                 logger.info("Gemini agent: attached %d prefetch KB chunks", len(pre))
@@ -256,7 +266,7 @@ def run_gemini_agent(
     # Ensure the current user turn is always present as the final turn.
     contents.append({"role": "user", "parts": [{"text": user_message}]})
     last_text_reply = ""
-    tool_decls = _tool_declarations(is_partner=is_partner)
+    tool_decls = _tool_declarations(is_partner=is_partner, allow_web_search=allow_web_search)
 
     for round_i in range(settings.gemini_max_tool_rounds):
         body: dict[str, Any] = {
@@ -386,7 +396,13 @@ def run_gemini_agent(
             elif name == "web_search":
                 q = args.get("query") or user_message
                 logger.info("Gemini tool web_search query=%r", q)
-                payload = run_web_search(str(q), settings)
+                if not allow_web_search:
+                    payload = (
+                        "Web search is disabled for Iris product/manual questions until the user "
+                        "verifies as a partner. Ask them to tap Partner and enter their access code."
+                    )
+                else:
+                    payload = run_web_search(str(q), settings)
             else:
                 payload = f"Unknown tool: {name}"
             fr_parts.append(

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IRIS ID — Partner Admin</title>
+  <style>
+    :root {
+      --iris-slate: #475569;
+      --iris-dark: #1e293b;
+      --iris-accent: #0ea5e9;
+      --iris-bg: #f8fafc;
+      --iris-border: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--iris-bg);
+      color: var(--iris-dark);
+      font-size: 14px;
+    }
+    header {
+      background: var(--iris-slate);
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    header h1 { margin: 0; font-size: 1.2rem; }
+    .auth-bar input {
+      padding: 0.45rem 0.6rem;
+      border-radius: 6px;
+      border: none;
+      min-width: 220px;
+    }
+    .auth-bar button {
+      padding: 0.45rem 0.85rem;
+      border: none;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--iris-slate);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    main { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .stat .n { font-size: 1.75rem; font-weight: 700; color: var(--iris-slate); }
+    .stat .l { font-size: 0.8rem; color: #64748b; margin-top: 0.2rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .toolbar button, .toolbar label {
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--iris-border);
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .toolbar button.primary {
+      background: var(--iris-slate);
+      color: #fff;
+      border-color: var(--iris-slate);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 0.55rem 0.65rem;
+      text-align: left;
+      border-bottom: 1px solid var(--iris-border);
+      vertical-align: top;
+    }
+    th { background: #f1f5f9; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    tr.inactive { opacity: 0.55; }
+    code { font-family: ui-monospace, monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; }
+    .actions button {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.45rem;
+      margin: 0.1rem;
+      border-radius: 4px;
+      border: 1px solid var(--iris-border);
+      background: #fff;
+      cursor: pointer;
+    }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+    }
+    .modal {
+      background: #fff; border-radius: 10px; padding: 1.25rem;
+      width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+    }
+    .modal h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+    .modal label { display: block; font-size: 0.8rem; font-weight: 500; margin: 0.6rem 0 0.25rem; }
+    .modal input, .modal select {
+      width: 100%; padding: 0.5rem; border: 1px solid var(--iris-border); border-radius: 6px;
+    }
+    .modal-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+    .hidden { display: none !important; }
+    .msg { padding: 0.65rem; border-radius: 6px; margin-bottom: 1rem; }
+    .msg.err { background: #fef2f2; color: #dc2626; }
+    .region-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+    .tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Partner Admin</h1>
+    <div class="auth-bar">
+      <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
+      <button type="button" id="btn-unlock">Unlock</button>
+    </div>
+  </header>
+
+  <main id="app" class="hidden">
+    <div id="banner" class="msg hidden"></div>
+
+    <div class="stats" id="stats"></div>
+    <div class="region-tags" id="region-tags"></div>
+
+    <div class="toolbar">
+      <button type="button" class="primary" id="btn-add">+ Add partner</button>
+      <label><input type="checkbox" id="show-inactive" /> Show inactive</label>
+      <button type="button" id="btn-refresh">Refresh</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Region</th>
+            <th>Company</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Code</th>
+            <th>Source</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-backdrop hidden" id="modal">
+    <div class="modal">
+      <h2 id="modal-title">Partner</h2>
+      <form id="form-partner">
+        <input type="hidden" id="f-id" />
+        <label>Email *</label>
+        <input type="email" id="f-email" required />
+        <label>Name *</label>
+        <input type="text" id="f-name" required />
+        <label>Company *</label>
+        <input type="text" id="f-company" required />
+        <label>Phone</label>
+        <input type="tel" id="f-phone" />
+        <label>Region *</label>
+        <select id="f-region" required></select>
+        <label>Country ISO</label>
+        <input type="text" id="f-country" maxlength="2" />
+        <label id="f-active-wrap" class="hidden"><input type="checkbox" id="f-active" checked /> Active</label>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel">Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const KEY_STORAGE = "aslan_partner_admin_key";
+    let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
+    let regions = [];
+
+    function headers() {
+      return { "Content-Type": "application/json", "X-Partner-Admin-Key": adminKey };
+    }
+
+    function banner(text, err) {
+      const b = document.getElementById("banner");
+      b.textContent = text;
+      b.className = "msg " + (err ? "err" : "");
+      b.classList.remove("hidden");
+      if (!err) setTimeout(() => b.classList.add("hidden"), 4000);
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(API + path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : r.statusText);
+      return data;
+    }
+
+    async function loadRegions() {
+      const r = await fetch(API + "/api/partner/regions");
+      const data = await r.json();
+      regions = data.regions || [];
+      const sel = document.getElementById("f-region");
+      sel.innerHTML = regions.map((x) => `<option value="${x.key}">${x.label}</option>`).join("");
+    }
+
+    function renderStats(s) {
+      document.getElementById("stats").innerHTML = `
+        <div class="stat"><div class="n">${s.active_partners}</div><div class="l">Active partners</div></div>
+        <div class="stat"><div class="n">${s.codes_issued_active}</div><div class="l">Active codes</div></div>
+        <div class="stat"><div class="n">${s.total_partners_ever}</div><div class="l">Total ever registered</div></div>
+        <div class="stat"><div class="n">${s.signups}</div><div class="l">Self sign-ups</div></div>
+        <div class="stat"><div class="n">${s.admin_created}</div><div class="l">Admin created</div></div>
+      `;
+      const tags = document.getElementById("region-tags");
+      const by = s.by_region || {};
+      tags.innerHTML = Object.entries(by).map(([k, n]) => {
+        const label = (regions.find((r) => r.key === k) || {}).label || k;
+        return `<span class="tag">${label}: ${n}</span>`;
+      }).join("");
+    }
+
+    function renderTable(partners) {
+      const tb = document.getElementById("tbody");
+      if (!partners.length) {
+        tb.innerHTML = '<tr><td colspan="9">No partners found</td></tr>';
+        return;
+      }
+      tb.innerHTML = partners.map((p) => `
+        <tr class="${p.active ? "" : "inactive"}">
+          <td>${p.id}</td>
+          <td>${p.region_key}</td>
+          <td>${esc(p.company)}</td>
+          <td>${esc(p.name)}</td>
+          <td>${esc(p.email)}</td>
+          <td>${esc(p.phone || "—")}</td>
+          <td><code>${esc(p.code)}</code></td>
+          <td>${p.source}</td>
+          <td class="actions">
+            <button data-edit="${p.id}">Edit</button>
+            <button data-regen="${p.id}">New code</button>
+            ${p.active ? `<button data-del="${p.id}">Deactivate</button>` : ""}
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    }
+
+    async function refresh() {
+      const inc = document.getElementById("show-inactive").checked;
+      const [stats, list] = await Promise.all([
+        api("/api/partner/admin/stats"),
+        api("/api/partner/admin/partners?include_inactive=" + (inc ? "true" : "false")),
+      ]);
+      renderStats(stats);
+      renderTable(list.partners || []);
+    }
+
+    function openModal(mode, partner) {
+      document.getElementById("modal-title").textContent = mode === "add" ? "Add partner" : "Edit partner";
+      document.getElementById("f-id").value = partner?.id || "";
+      document.getElementById("f-email").value = partner?.email || "";
+      document.getElementById("f-name").value = partner?.name || "";
+      document.getElementById("f-company").value = partner?.company || "";
+      document.getElementById("f-phone").value = partner?.phone || "";
+      document.getElementById("f-region").value = partner?.region_key || (regions[0]?.key || "");
+      document.getElementById("f-country").value = partner?.country_iso || "";
+      document.getElementById("f-active-wrap").classList.toggle("hidden", mode === "add");
+      document.getElementById("f-active").checked = partner?.active !== false;
+      document.getElementById("modal").classList.remove("hidden");
+    }
+
+    function closeModal() {
+      document.getElementById("modal").classList.add("hidden");
+    }
+
+    document.getElementById("btn-unlock").addEventListener("click", async () => {
+      adminKey = document.getElementById("admin-key").value.trim();
+      if (!adminKey) return;
+      try {
+        await api("/api/partner/admin/stats");
+        sessionStorage.setItem(KEY_STORAGE, adminKey);
+        document.getElementById("app").classList.remove("hidden");
+        await loadRegions();
+        await refresh();
+      } catch (e) {
+        banner(e.message || "Invalid key", true);
+      }
+    });
+
+    if (adminKey) {
+      document.getElementById("admin-key").value = adminKey;
+      document.getElementById("btn-unlock").click();
+    }
+
+    document.getElementById("btn-refresh").addEventListener("click", () => refresh().catch((e) => banner(e.message, true)));
+    document.getElementById("show-inactive").addEventListener("change", () => refresh().catch((e) => banner(e.message, true)));
+    document.getElementById("btn-add").addEventListener("click", () => openModal("add"));
+    document.getElementById("btn-cancel").addEventListener("click", closeModal);
+
+    document.getElementById("form-partner").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("f-id").value;
+      const body = {
+        email: document.getElementById("f-email").value.trim(),
+        name: document.getElementById("f-name").value.trim(),
+        company: document.getElementById("f-company").value.trim(),
+        phone: document.getElementById("f-phone").value.trim() || null,
+        region_key: document.getElementById("f-region").value,
+        country_iso: document.getElementById("f-country").value.trim().toUpperCase() || null,
+      };
+      try {
+        if (id) {
+          body.active = document.getElementById("f-active").checked;
+          await api("/api/partner/admin/partners/" + id, { method: "PATCH", body: JSON.stringify(body) });
+        } else {
+          body.send_email = true;
+          await api("/api/partner/admin/partners", { method: "POST", body: JSON.stringify(body) });
+        }
+        closeModal();
+        await refresh();
+        banner("Saved", false);
+      } catch (err) {
+        banner(err.message, true);
+      }
+    });
+
+    document.getElementById("tbody").addEventListener("click", async (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLButtonElement)) return;
+      const id = t.dataset.edit || t.dataset.regen || t.dataset.del;
+      if (!id) return;
+      try {
+        if (t.dataset.edit) {
+          const list = await api("/api/partner/admin/partners?include_inactive=true");
+          const p = (list.partners || []).find((x) => String(x.id) === id);
+          if (p) openModal("edit", p);
+        } else if (t.dataset.regen) {
+          if (!confirm("Generate a new access code and email it to the partner?")) return;
+          await api("/api/partner/admin/partners/" + id + "/regenerate-code?send_email=true", { method: "POST" });
+          await refresh();
+          banner("New code sent", false);
+        } else if (t.dataset.del) {
+          if (!confirm("Deactivate this partner? Their code will stop working.")) return;
+          await api("/api/partner/admin/partners/" + id, { method: "DELETE" });
+          await refresh();
+          banner("Partner deactivated", false);
+        }
+      } catch (err) {
+        banner(err.message, true);
+      }
+    });
+  </script>
+</body>
+</html>

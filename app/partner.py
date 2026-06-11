@@ -36,6 +36,20 @@ _PARTNER_INTENT_RE = re.compile(
 # - 3-32 chars, letters/digits/dashes (no spaces).
 _POSSIBLE_CODE_RE = re.compile(r"\b([A-Za-z0-9][A-Za-z0-9\-]{2,31})\b")
 
+# Ingested partner_docs filenames / paths (see rag.ingest --partner).
+_PARTNER_CORPUS_SOURCE_RE = re.compile(
+    r"(user_manual|history_ia1000|partner_docs|installation.?plate|/assets/)",
+    re.IGNORECASE,
+)
+
+
+def is_partner_corpus_source(metadata: dict | None) -> bool:
+    """True when Qdrant chunk metadata points at aslan-rag/partner_docs content."""
+    if not metadata:
+        return False
+    src = str(metadata.get("source", ""))
+    return bool(_PARTNER_CORPUS_SOURCE_RE.search(src))
+
 
 def _load_codes(settings: Settings | None = None) -> set[str]:
     s = settings or get_settings()
@@ -47,21 +61,38 @@ def message_asks_about_partner(message: str) -> bool:
     return bool(_PARTNER_INTENT_RE.search(message or ""))
 
 
+
+def _resolve_code_token(tok: str, env_codes: set[str]) -> str | None:
+    if tok in env_codes:
+        return tok
+    t = tok.strip().upper()
+    for c in env_codes:
+        if c.upper() == t:
+            return c
+    try:
+        from app.partner_db import is_active_code
+
+        if is_active_code(t):
+            return t
+    except Exception:
+        pass
+    return None
+
+
 def extract_valid_code(message: str, settings: Settings | None = None) -> str | None:
-    """Return the first token in `message` that matches a configured partner code."""
-    codes = _load_codes(settings)
-    if not codes:
-        return None
+    """Return the first token in `message` that matches a partner access code."""
+    env_codes = _load_codes(settings)
     text = (message or "").strip()
     if not text:
         return None
-    # Exact-match shortcut: user types just the code.
-    if text in codes:
-        return text
+    resolved = _resolve_code_token(text, env_codes)
+    if resolved:
+        return resolved
     for m in _POSSIBLE_CODE_RE.finditer(text):
         tok = m.group(1)
-        if tok in codes:
-            return tok
+        resolved = _resolve_code_token(tok, env_codes)
+        if resolved:
+            return resolved
     return None
 
 
@@ -91,4 +122,66 @@ def revoke_partner_token(token: str | None) -> None:
 
 
 def partner_enabled(settings: Settings | None = None) -> bool:
-    return bool(_load_codes(settings))
+    if _load_codes(settings):
+        return True
+    try:
+        from app.partner_db import count_active_partners
+
+        return count_active_partners() > 0
+    except Exception:
+        return False
+
+
+def query_requires_partner_auth(message: str, language_iso: str) -> bool:
+    """
+    True when the query would be answered from partner-only docs (aslan-rag/partner_docs).
+    """
+    from app.query_hints import looks_like_kb_or_product_query
+    from rag.retrieve import retrieve_best_chunks, retrieve_best_chunks_from
+    from rag.schemas import RagFilters
+
+    if not partner_enabled() or not looks_like_kb_or_product_query(message):
+        return False
+
+    settings = get_settings()
+    try:
+        partner_hits = retrieve_best_chunks_from(
+            message,
+            settings,
+            collection_name=settings.qdrant_collection_partner,
+            base=RagFilters(language=language_iso, access="partner"),
+        )
+        if not partner_hits:
+            return False
+
+        top = partner_hits[0]
+        if top.score < settings.rag_prefetch_min_score:
+            return False
+
+        # Partner manual / history / figures → always require code.
+        if is_partner_corpus_source(top.metadata):
+            logger.info(
+                "Partner gate: partner corpus source=%r score=%.3f",
+                top.metadata.get("source"),
+                top.score,
+            )
+            return True
+
+        if top.score < settings.rag_min_score:
+            return False
+
+        public_hits = retrieve_best_chunks(
+            message,
+            settings,
+            RagFilters(language=language_iso),
+            exclude_partner=True,
+        )
+        public_score = public_hits[0].score if public_hits else 0.0
+        if public_score < settings.rag_min_score:
+            return True
+        if top.score > public_score + 0.03:
+            return True
+        return False
+    except Exception as exc:
+        logger.warning("Partner KB probe failed: %s", exc)
+        return False

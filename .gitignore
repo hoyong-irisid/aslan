@@ -17,6 +17,7 @@ data/raw/
 data/exports/
 data/chunks/
 data/embeddings/
+data/partners.db
 qdrant_storage/
 backups/
 *.pdf

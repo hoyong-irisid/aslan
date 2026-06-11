@@ -10,10 +10,12 @@ from app.faq import match_faq
 from app.llm import answer_with_rag, generate, route_message
 from app.partner import (
     extract_valid_code,
+    is_partner_corpus_source,
     is_partner_session,
     issue_partner_token,
     message_asks_about_partner,
     partner_enabled,
+    query_requires_partner_auth,
 )
 from app.query_hints import looks_like_kb_or_product_query
 from config.settings import get_settings
@@ -239,6 +241,24 @@ def _handle_partner_gate(
     return None
 
 
+def _handle_partner_content_gate(
+    message: str,
+    lang: str,
+    partner_token: str | None,
+) -> ChatResult | None:
+    """Ask for partner code when the answer would come from partner-only docs."""
+    if not partner_enabled() or is_partner_session(partner_token):
+        return None
+    if not query_requires_partner_auth(message, lang):
+        return None
+    logger.info("Partner content gate: partner KB hit without public KB for query")
+    return ChatResult(
+        reply=_partner_ask_code_text(lang),
+        partner_authenticated=False,
+        partner_token=None,
+    )
+
+
 def handle_chat(
     message: str,
     region_hint: str | None = None,
@@ -252,6 +272,10 @@ def handle_chat(
     gate = _handle_partner_gate(message, lang, partner_token)
     if gate is not None:
         return gate
+
+    content_gate = _handle_partner_content_gate(message, lang, partner_token)
+    if content_gate is not None:
+        return content_gate
 
     is_partner = is_partner_session(partner_token)
     partner_meta_token = partner_token if is_partner else None
@@ -345,6 +369,7 @@ def handle_chat(
                 department="support" if intent == "technical_support" else None,
             )
             best = retrieve_best_chunks(message, settings, filters)
+            best = [c for c in best if not is_partner_corpus_source(c.metadata)]
             if not best or best[0].score < settings.rag_min_score:
                 if needs_support:
                     return _ok(format_handoff_support(country))

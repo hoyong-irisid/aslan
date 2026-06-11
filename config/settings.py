@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Kept as raw string so we can re-read at runtime without restarting.
     partner_codes: str = ""
     partner_session_ttl_minutes: int = 120
+    partner_db_path: str = "data/partners.db"
+    partner_admin_api_key: str | None = None
+    partner_otp_ttl_minutes: int = 10
     # Partner corpus lives outside this repo (not committed). Absolute path, or path relative to repo root.
     # If unset, defaults to ../aslan-rag/partner_docs (sibling of the aslan checkout).
     partner_docs_dir: str | None = None
@@ -51,6 +54,7 @@ class Settings(BaseSettings):
         "smtp_from",
         "resend_api_key",
         "resend_from",
+        "partner_admin_api_key",
         mode="before",
     )
     @classmethod
