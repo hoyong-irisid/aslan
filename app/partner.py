@@ -169,13 +169,14 @@ def record_partner_chat_activity(
     region_hint: str | None = None,
     client_timezone: str | None = None,
     client_ip: str | None = None,
+    client_geo: "IpLocation | None" = None,
 ) -> None:
     entry = _session_entry(token)
     if not entry:
         return
     _, code, session_id = entry
     try:
-        from app.geoip import lookup_ip_location
+        from app.geoip import IpLocation, resolve_session_geo
         from app.partner_db import (
             touch_partner_activity_by_code,
             touch_partner_chat_session,
@@ -188,15 +189,17 @@ def record_partner_chat_activity(
                 region=region_hint,
                 timezone=client_timezone,
             )
-            if client_ip:
-                geo = lookup_ip_location(client_ip.strip())
-                if geo:
-                    update_session_geo_if_empty(
-                        session_id,
-                        geo_city=geo.city,
-                        geo_region=geo.region,
-                        geo_country=geo.country,
-                    )
+            geo: IpLocation | None = resolve_session_geo(
+                client_ip=client_ip,
+                client_geo=client_geo,
+            )
+            if geo:
+                update_session_geo_if_empty(
+                    session_id,
+                    geo_city=geo.city,
+                    geo_region=geo.region,
+                    geo_country=geo.country,
+                )
         if code:
             touch_partner_activity_by_code(code)
     except Exception:

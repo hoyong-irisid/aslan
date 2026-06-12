@@ -17,6 +17,40 @@
           return null;
         }
       }
+
+      var CLIENT_GEO_KEY = "aslan.client_geo";
+
+      function loadClientGeo() {
+        try {
+          var raw = window.sessionStorage.getItem(CLIENT_GEO_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return null;
+      }
+
+      function saveClientGeo(geo) {
+        try {
+          if (geo) window.sessionStorage.setItem(CLIENT_GEO_KEY, JSON.stringify(geo));
+        } catch (e) {}
+      }
+
+      function resolveClientGeo() {
+        var cached = loadClientGeo();
+        if (cached) return Promise.resolve(cached);
+        return fetch("https://ipwho.is/", { method: "GET" })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (!data || !data.success) return null;
+            var geo = {
+              city: data.city || null,
+              region: data.region || null,
+              country: data.country || null,
+            };
+            if (geo.city || geo.region || geo.country) saveClientGeo(geo);
+            return geo;
+          })
+          .catch(function () { return null; });
+      }
       
       var chatHistory = [];
       function resolveAssetUrl(u) {
@@ -539,16 +573,19 @@
         setLoading(true);
         showTyping();
         try {
+          var clientGeo = await resolveClientGeo();
+          var payload = {
+            message: text,
+            region_hint: null,
+            client_timezone: clientTimezone(),
+            partner_token: getPartnerToken(),
+            chat_history: chatHistory.slice(0, -1),
+          };
+          if (clientGeo) payload.client_geo = clientGeo;
           var res = await fetch(API_BASE + "/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: text,
-              region_hint: null,
-              client_timezone: clientTimezone(),
-              partner_token: getPartnerToken(),
-              chat_history: chatHistory.slice(0, -1),
-            }),
+            body: JSON.stringify(payload),
           });
           var data = await res.json().catch(function () { return {}; });
           hideTyping();

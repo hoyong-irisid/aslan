@@ -45,6 +45,12 @@ class ChatHistoryLine(BaseModel):
     text: str = Field(default="")
 
 
+class ClientGeo(BaseModel):
+    city: str | None = Field(default=None, max_length=120)
+    region: str | None = Field(default=None, max_length=120)
+    country: str | None = Field(default=None, max_length=120)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     region_hint: str | None = Field(
@@ -54,6 +60,10 @@ class ChatRequest(BaseModel):
     client_timezone: str | None = Field(
         default=None,
         description="IANA timezone from the client browser (e.g. America/New_York).",
+    )
+    client_geo: ClientGeo | None = Field(
+        default=None,
+        description="Optional city/region/country from browser-side IP geolocation.",
     )
     partner_token: str | None = Field(
         default=None,
@@ -107,7 +117,7 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v50"
+_PARTNER_UI_VERSION = "2026-06-11-v51"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
 _PARTNER_SETTINGS_PATH = "/partner/settings"
@@ -391,9 +401,16 @@ def _log_config_on_startup() -> None:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, request: Request) -> ChatResponse:
-    from app.geoip import extract_client_ip
+    from app.geoip import client_geo_from_fields, extract_client_ip
 
     client_ip = extract_client_ip(request)
+    client_geo = None
+    if body.client_geo:
+        client_geo = client_geo_from_fields(
+            body.client_geo.city,
+            body.client_geo.region,
+            body.client_geo.country,
+        )
     try:
         result = handle_chat(
             body.message,
@@ -402,6 +419,7 @@ def chat(body: ChatRequest, request: Request) -> ChatResponse:
             chat_history=body.chat_history,
             client_timezone=body.client_timezone,
             client_ip=client_ip,
+            client_geo=client_geo,
         )
     except Exception as exc:
         return ChatResponse(

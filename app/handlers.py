@@ -213,6 +213,7 @@ def _handle_partner_gate(
     *,
     client_ip: str | None = None,
     client_timezone: str | None = None,
+    client_geo: "IpLocation | None" = None,
 ) -> ChatResult | None:
     """
     Returns a ChatResult and short-circuits /chat when the turn is purely about
@@ -234,6 +235,7 @@ def _handle_partner_gate(
                 token,
                 client_timezone=client_timezone,
                 client_ip=client_ip,
+                client_geo=client_geo,
             )
         except Exception:
             pass
@@ -280,6 +282,7 @@ def handle_chat(
     chat_history: list[dict[str, str]] | None = None,
     client_timezone: str | None = None,
     client_ip: str | None = None,
+    client_geo: "IpLocation | None" = None,
 ) -> ChatResult:
     settings = get_settings()
     lang = detect_language_iso(message)
@@ -290,6 +293,7 @@ def handle_chat(
         partner_token,
         client_ip=client_ip,
         client_timezone=client_timezone,
+        client_geo=client_geo,
     )
     if gate is not None:
         return gate
@@ -308,6 +312,7 @@ def handle_chat(
                 region_hint=region_hint,
                 client_timezone=client_timezone,
                 client_ip=client_ip,
+                client_geo=client_geo,
             )
         except Exception:
             pass
