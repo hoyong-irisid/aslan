@@ -23,7 +23,7 @@ from app.countries import (
 from app.partner_domains import (
     domains_to_text,
     get_signup_domain_rules,
-    save_signup_domain_rules,
+    save_signup_domain_rules_from_text,
     validate_signup_email_domain,
 )
 from app.partner_db import (
@@ -532,11 +532,9 @@ def admin_save_domain_settings(
 ) -> dict[str, Any]:
     settings = get_settings()
     _require_admin(x_partner_admin_key, settings)
-    from app.partner_domains import parse_domain_list
-
-    saved = save_signup_domain_rules(
-        allowed_domains=parse_domain_list(body.allowed_domains_text),
-        blocked_domains=parse_domain_list(body.blocked_domains_text),
+    saved = save_signup_domain_rules_from_text(
+        allowed_domains_text=body.allowed_domains_text,
+        blocked_domains_text=body.blocked_domains_text,
     )
     return {
         "status": "saved",

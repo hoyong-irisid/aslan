@@ -54,22 +54,36 @@ def domains_to_text(domains: list[str]) -> str:
     return "\n".join(lines)
 
 
+def _load_domain_setting(key: str) -> list[str]:
+    """Load stored domain list; tolerate JSON arrays, JSON strings, or plain text."""
+    raw = get_partner_setting(key, "").strip()
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return parse_domain_list(raw)
+    if isinstance(data, list):
+        return parse_domain_list("\n".join(str(x) for x in data))
+    if isinstance(data, str):
+        return parse_domain_list(data)
+    return []
+
+
 def get_signup_domain_rules() -> dict[str, list[str]]:
-    allowed = json.loads(get_partner_setting(_SETTING_ALLOWED, "[]"))
-    blocked = json.loads(get_partner_setting(_SETTING_BLOCKED, "[]"))
-    if not isinstance(allowed, list):
-        allowed = []
-    if not isinstance(blocked, list):
-        blocked = []
     return {
-        "allowed_domains": parse_domain_list("\n".join(str(x) for x in allowed)),
-        "blocked_domains": parse_domain_list("\n".join(str(x) for x in blocked)),
+        "allowed_domains": _load_domain_setting(_SETTING_ALLOWED),
+        "blocked_domains": _load_domain_setting(_SETTING_BLOCKED),
     }
 
 
-def save_signup_domain_rules(*, allowed_domains: list[str], blocked_domains: list[str]) -> dict[str, list[str]]:
-    allowed = parse_domain_list("\n".join(allowed_domains))
-    blocked = parse_domain_list("\n".join(blocked_domains))
+def save_signup_domain_rules_from_text(
+    *,
+    allowed_domains_text: str = "",
+    blocked_domains_text: str = "",
+) -> dict[str, list[str]]:
+    allowed = parse_domain_list(allowed_domains_text)
+    blocked = parse_domain_list(blocked_domains_text)
     set_partner_setting(_SETTING_ALLOWED, json.dumps(allowed))
     set_partner_setting(_SETTING_BLOCKED, json.dumps(blocked))
     return {"allowed_domains": allowed, "blocked_domains": blocked}

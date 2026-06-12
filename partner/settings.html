@@ -242,12 +242,12 @@
             <div class="field">
               <label for="blocked-domains">Blocked domains</label>
               <textarea id="blocked-domains" placeholder="@xxx.com"></textarea>
-              <p class="hint">Emails from these domains cannot sign up for partner access.</p>
+              <p class="hint">Enter one domain per line (e.g. @gmail.com or gmail.com). Emails from these domains cannot sign up for partner access.</p>
             </div>
             <div class="field">
               <label for="allowed-domains">Partner domains</label>
               <textarea id="allowed-domains" placeholder="@xxx.com"></textarea>
-              <p class="hint">Only emails matching these domains may register. Enter one domain per line.</p>
+              <p class="hint">Enter one domain per line (e.g. @company.com or company.com). Only emails matching these domains may register.</p>
             </div>
             <button type="submit" class="btn" id="btn-save">Save</button>
           </form>
@@ -287,10 +287,15 @@
       return data;
     }
 
-    async function loadDomains() {
-      const data = await api("/api/partner/admin/settings/domains");
+    function applyDomainFields(data) {
       document.getElementById("blocked-domains").value = data.blocked_domains_text || "";
       document.getElementById("allowed-domains").value = data.allowed_domains_text || "";
+    }
+
+    async function loadDomains() {
+      const data = await api("/api/partner/admin/settings/domains?t=" + Date.now());
+      applyDomainFields(data);
+      return data;
     }
 
     document.getElementById("btn-unlock").addEventListener("click", async () => {
@@ -311,18 +316,27 @@
       document.getElementById("btn-unlock").click();
     }
 
+    window.addEventListener("pageshow", () => {
+      if (!adminKey) return;
+      const app = document.getElementById("app");
+      if (app && !app.classList.contains("hidden")) {
+        loadDomains().catch((err) => banner(err.message || "Could not reload domains", true));
+      }
+    });
+
     document.getElementById("form-domains").addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = document.getElementById("btn-save");
       btn.disabled = true;
       try {
-        await api("/api/partner/admin/settings/domains", {
+        const data = await api("/api/partner/admin/settings/domains", {
           method: "POST",
           body: JSON.stringify({
             blocked_domains_text: document.getElementById("blocked-domains").value,
             allowed_domains_text: document.getElementById("allowed-domains").value,
           }),
         });
+        applyDomainFields(data);
         banner("Domain settings saved", false);
       } catch (err) {
         banner(err.message || "Save failed", true);
