@@ -559,7 +559,7 @@ def admin_get_activity_timing(
     settings = get_settings()
     _require_admin(x_partner_admin_key, settings)
     days = get_inactivity_days()
-    return {"inactivity_days": days, "unit": "days"}
+    return {"inactivity_days": days, "unit": "day(s)"}
 
 
 @router.post("/admin/settings/activity-timing")
@@ -570,4 +570,4 @@ def admin_save_activity_timing(
     settings = get_settings()
     _require_admin(x_partner_admin_key, settings)
     days = save_inactivity_days(body.inactivity_days)
-    return {"status": "saved", "inactivity_days": days, "unit": "days"}
+    return {"status": "saved", "inactivity_days": days, "unit": "day(s)"}

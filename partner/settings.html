@@ -148,6 +148,9 @@
       font-size: 1.05rem;
       font-weight: 600;
     }
+    .settings-panel > .hint {
+      margin: -0.35rem 0 1rem;
+    }
     .settings-page-title {
       margin: 0 0 1rem;
       font-size: 1.15rem;
@@ -269,6 +272,7 @@
           <h2 class="settings-page-title">Settings</h2>
           <section class="settings-panel" id="domains" data-settings-panel="domains">
           <h2>Domains</h2>
+          <p class="hint">Enter one domain per line (e.g. @company.com or company.com). Only emails matching these domains may register.</p>
           <form id="form-domains">
             <div class="field">
               <label for="blocked-domains">Blocked domains</label>
@@ -277,21 +281,20 @@
             <div class="field">
               <label for="allowed-domains">Partner domains</label>
               <textarea id="allowed-domains" placeholder="@xxx.com"></textarea>
-              <p class="hint">Enter one domain per line (e.g. @company.com or company.com). Only emails matching these domains may register.</p>
             </div>
             <button type="submit" class="btn" id="btn-save-domains">Save</button>
           </form>
         </section>
           <section class="settings-panel hidden" id="activity-timing" data-settings-panel="activity-timing">
             <h2>Activity timing</h2>
+            <p class="hint">Partners with no activity for this many days are automatically set to inactive.</p>
             <form id="form-activity-timing">
               <div class="field">
                 <label for="inactivity-days">Inactivity threshold</label>
                 <div class="input-with-unit">
                   <input type="number" id="inactivity-days" min="1" max="3650" step="1" value="90" required />
-                  <span class="field-unit">days</span>
+                  <span class="field-unit">day(s)</span>
                 </div>
-                <p class="hint">Partners with no activity for this many days are automatically set to inactive.</p>
               </div>
               <button type="submit" class="btn" id="btn-save-activity">Save</button>
             </form>
