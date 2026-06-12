@@ -9,6 +9,14 @@
       var ASSETS_BASE = String(CFG.assetsBase || "").replace(/\/$/, "");
       var TRANSCRIPT_RECIPIENT = CFG.transcriptRecipient || "hoyong.lee@irisid.com";
       var PARTNER_TOKEN_KEY = "aslan.partner_token";
+
+      function clientTimezone() {
+        try {
+          return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+        } catch (e) {
+          return null;
+        }
+      }
       
       var chatHistory = [];
       function resolveAssetUrl(u) {
@@ -537,6 +545,7 @@
             body: JSON.stringify({
               message: text,
               region_hint: null,
+              client_timezone: clientTimezone(),
               partner_token: getPartnerToken(),
               chat_history: chatHistory.slice(0, -1),
             }),

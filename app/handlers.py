@@ -271,6 +271,7 @@ def handle_chat(
     *,
     partner_token: str | None = None,
     chat_history: list[dict[str, str]] | None = None,
+    client_timezone: str | None = None,
 ) -> ChatResult:
     settings = get_settings()
     lang = detect_language_iso(message)
@@ -288,7 +289,7 @@ def handle_chat(
         try:
             from app.partner import record_partner_chat_activity
 
-            record_partner_chat_activity(partner_token, region_hint=region_hint)
+            record_partner_chat_activity(partner_token, region_hint=region_hint, client_timezone=client_timezone)
         except Exception:
             pass
     partner_meta_token = partner_token if is_partner else None

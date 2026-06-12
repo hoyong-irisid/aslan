@@ -163,7 +163,12 @@ def partner_session_id_for_token(token: str | None) -> int | None:
     return entry[2]
 
 
-def record_partner_chat_activity(token: str | None, *, region_hint: str | None = None) -> None:
+def record_partner_chat_activity(
+    token: str | None,
+    *,
+    region_hint: str | None = None,
+    client_timezone: str | None = None,
+) -> None:
     entry = _session_entry(token)
     if not entry:
         return
@@ -172,7 +177,11 @@ def record_partner_chat_activity(token: str | None, *, region_hint: str | None =
         from app.partner_db import touch_partner_activity_by_code, touch_partner_chat_session
 
         if session_id:
-            touch_partner_chat_session(session_id, region=region_hint)
+            touch_partner_chat_session(
+                session_id,
+                region=region_hint,
+                timezone=client_timezone,
+            )
         if code:
             touch_partner_activity_by_code(code)
     except Exception:

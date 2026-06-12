@@ -603,6 +603,14 @@
       var TRANSCRIPT_RECIPIENT = "hoyong.lee@irisid.com";
       var chatHistory = [];
 
+      function clientTimezone() {
+        try {
+          return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+        } catch (e) {
+          return null;
+        }
+      }
+
       function getPartnerToken() {
         try { return window.sessionStorage.getItem(PARTNER_TOKEN_KEY) || null; }
         catch (e) { return null; }
@@ -1099,6 +1107,7 @@
             body: JSON.stringify({
               message: text,
               region_hint: null,
+              client_timezone: clientTimezone(),
               partner_token: getPartnerToken(),
               chat_history: chatHistory.slice(0, -1),
             }),

@@ -9,6 +9,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -577,6 +578,27 @@ def admin_save_activity_timing(
     return {"status": "saved", "inactivity_days": days, "unit": "day(s)"}
 
 
+_ET = ZoneInfo("America/New_York")
+
+_TZ_LOCATION_LABELS = {
+    "America/New_York": "United States (Eastern)",
+    "America/Chicago": "United States (Central)",
+    "America/Denver": "United States (Mountain)",
+    "America/Los_Angeles": "United States (Pacific)",
+    "America/Phoenix": "United States (Arizona)",
+    "America/Anchorage": "United States (Alaska)",
+    "Pacific/Honolulu": "United States (Hawaii)",
+    "Asia/Seoul": "South Korea",
+    "Asia/Tokyo": "Japan",
+    "Europe/London": "United Kingdom",
+    "Europe/Paris": "France",
+    "Europe/Berlin": "Germany",
+    "Asia/Dubai": "United Arab Emirates",
+    "Asia/Singapore": "Singapore",
+    "Australia/Sydney": "Australia (Sydney)",
+}
+
+
 def _parse_iso_dt(raw: str | None) -> datetime | None:
     if not raw:
         return None
@@ -611,28 +633,56 @@ def _session_duration_seconds(row: dict[str, Any]) -> int:
     return max(0, int((ended - started).total_seconds()))
 
 
-def _session_location(row: dict[str, Any]) -> str:
+def _timezone_location_label(timezone_name: str) -> str:
+    tz = (timezone_name or "").strip()
+    if not tz:
+        return ""
+    if tz in _TZ_LOCATION_LABELS:
+        return _TZ_LOCATION_LABELS[tz]
+    if "/" in tz:
+        return tz.split("/", 1)[1].replace("_", " ")
+    return tz
+
+
+def _session_location(row: dict[str, Any], partner: dict[str, Any] | None = None) -> str:
+    tz = (row.get("timezone") or "").strip()
+    if tz:
+        return _timezone_location_label(tz)
     region = (row.get("region") or "").strip().upper()
-    if not region:
-        return "—"
-    name = country_name_for_iso(region)
-    if name:
-        return f"{name} ({region})"
-    return region
+    if region:
+        name = country_name_for_iso(region)
+        if name:
+            return f"{name} ({region})"
+        return region
+    if partner:
+        country = partner.get("country") or country_name_for_iso(partner.get("country_iso"))
+        if country:
+            return str(country)
+    return "—"
 
 
-def _serialize_activity_log(row: dict[str, Any]) -> dict[str, Any]:
-    started = _parse_iso_dt(row.get("started_at"))
+def _format_log_datetime(started_iso: str | None) -> tuple[str, str]:
+    started = _parse_iso_dt(started_iso)
+    if not started:
+        return "—", "—"
+    dt_et = started.astimezone(_ET)
+    return dt_et.strftime("%Y-%m-%d"), dt_et.strftime("%I:%M:%S %p %Z")
+
+
+def _serialize_activity_log(
+    row: dict[str, Any],
+    partner: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    date_str, time_str = _format_log_datetime(row.get("started_at"))
     duration_seconds = _session_duration_seconds(row)
-    date_str = started.strftime("%Y-%m-%d") if started else "—"
-    time_str = started.strftime("%H:%M:%S UTC") if started else "—"
     return {
         "id": row["id"],
         "started_at": row.get("started_at"),
         "date": date_str,
         "time": time_str,
         "region": row.get("region"),
-        "location": _session_location(row),
+        "timezone": row.get("timezone"),
+        "location": _session_location(row, partner),
         "duration_seconds": duration_seconds,
         "duration": _format_duration(duration_seconds),
         "ended_at": row.get("ended_at"),
@@ -645,9 +695,9 @@ def _activity_logs_csv(partner: dict[str, Any], logs: list[dict[str, Any]]) -> s
     writer.writerow(["Partner", partner.get("name", ""), partner.get("email", "")])
     writer.writerow(["Company", partner.get("company", ""), ""])
     writer.writerow([])
-    writer.writerow(["Date", "Time (UTC)", "Location", "Duration"])
+    writer.writerow(["Date", "Time (ET)", "Location", "Duration"])
     for row in logs:
-        item = _serialize_activity_log(row)
+        item = _serialize_activity_log(row, partner)
         writer.writerow([item["date"], item["time"], item["location"], item["duration"]])
     return buf.getvalue()
 
@@ -663,9 +713,10 @@ def admin_partner_activity_logs(
     if not partner:
         raise HTTPException(status_code=404, detail="Partner not found")
     rows = list_partner_chat_sessions(partner_id)
+    public = _public_partner(partner)
     return {
-        "partner": _public_partner(partner),
-        "logs": [_serialize_activity_log(r) for r in rows],
+        "partner": public,
+        "logs": [_serialize_activity_log(r, public) for r in rows],
     }
 
 

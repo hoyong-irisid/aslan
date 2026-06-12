@@ -51,6 +51,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Optional ISO-3166 alpha-2 country for regional contacts (e.g. AE, ID).",
     )
+    client_timezone: str | None = Field(
+        default=None,
+        description="IANA timezone from the client browser (e.g. America/New_York).",
+    )
     partner_token: str | None = Field(
         default=None,
         description="Session token issued after a valid partner access code was verified.",
@@ -103,7 +107,7 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v47"
+_PARTNER_UI_VERSION = "2026-06-11-v49"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
 _PARTNER_SETTINGS_PATH = "/partner/settings"
@@ -393,6 +397,7 @@ def chat(body: ChatRequest) -> ChatResponse:
             body.region_hint,
             partner_token=body.partner_token,
             chat_history=body.chat_history,
+            client_timezone=body.client_timezone,
         )
     except Exception as exc:
         return ChatResponse(

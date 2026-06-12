@@ -93,6 +93,7 @@ def init_db() -> None:
                 ended_at TEXT,
                 last_activity_at TEXT NOT NULL,
                 region TEXT,
+                timezone TEXT,
                 duration_seconds INTEGER,
                 created_at TEXT NOT NULL
             );
@@ -107,6 +108,9 @@ def init_db() -> None:
             con.execute("ALTER TABLE partners ADD COLUMN note TEXT")
         if "last_activity_at" not in cols:
             con.execute("ALTER TABLE partners ADD COLUMN last_activity_at TEXT")
+        session_cols = {row[1] for row in con.execute("PRAGMA table_info(partner_chat_sessions)")}
+        if session_cols and "timezone" not in session_cols:
+            con.execute("ALTER TABLE partner_chat_sessions ADD COLUMN timezone TEXT")
 
 
 def get_partner_setting(key: str, default: str = "") -> str:
@@ -207,42 +211,57 @@ def _normalize_session_region(region: str | None) -> str | None:
     return r or None
 
 
-def start_partner_chat_session(partner_id: int, *, region: str | None = None) -> int:
+def _normalize_session_timezone(timezone: str | None) -> str | None:
+    tz = (timezone or "").strip()
+    return tz or None
+
+
+def start_partner_chat_session(
+    partner_id: int,
+    *,
+    region: str | None = None,
+    timezone: str | None = None,
+) -> int:
     now = _utc_now()
     with _conn() as con:
         cur = con.execute(
             """
             INSERT INTO partner_chat_sessions
-                (partner_id, started_at, last_activity_at, region, created_at)
-            VALUES (?, ?, ?, ?, ?)
+                (partner_id, started_at, last_activity_at, region, timezone, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (partner_id, now, now, _normalize_session_region(region), now),
+            (
+                partner_id,
+                now,
+                now,
+                _normalize_session_region(region),
+                _normalize_session_timezone(timezone),
+                now,
+            ),
         )
         return int(cur.lastrowid)
 
 
-def touch_partner_chat_session(session_id: int, *, region: str | None = None) -> None:
+def touch_partner_chat_session(
+    session_id: int,
+    *,
+    region: str | None = None,
+    timezone: str | None = None,
+) -> None:
     now = _utc_now()
     region_val = _normalize_session_region(region)
+    timezone_val = _normalize_session_timezone(timezone)
     with _conn() as con:
-        if region_val:
-            con.execute(
-                """
-                UPDATE partner_chat_sessions
-                SET last_activity_at = ?, region = COALESCE(?, region)
-                WHERE id = ? AND ended_at IS NULL
-                """,
-                (now, region_val, session_id),
-            )
-        else:
-            con.execute(
-                """
-                UPDATE partner_chat_sessions
-                SET last_activity_at = ?
-                WHERE id = ? AND ended_at IS NULL
-                """,
-                (now, session_id),
-            )
+        con.execute(
+            """
+            UPDATE partner_chat_sessions
+            SET last_activity_at = ?,
+                region = COALESCE(?, region),
+                timezone = COALESCE(?, timezone)
+            WHERE id = ? AND ended_at IS NULL
+            """,
+            (now, region_val, timezone_val, session_id),
+        )
 
 
 def close_partner_chat_session(session_id: int) -> None:
@@ -283,6 +302,7 @@ def _chat_session_row(row: sqlite3.Row) -> dict[str, Any]:
         "ended_at": row["ended_at"],
         "last_activity_at": row["last_activity_at"],
         "region": row["region"],
+        "timezone": row["timezone"] if "timezone" in row.keys() else None,
         "duration_seconds": row["duration_seconds"],
         "created_at": row["created_at"],
     }
@@ -292,7 +312,7 @@ def list_partner_chat_sessions(partner_id: int, *, limit: int = 500) -> list[dic
     with _conn() as con:
         rows = con.execute(
             """
-            SELECT id, partner_id, started_at, ended_at, last_activity_at, region, duration_seconds, created_at
+            SELECT id, partner_id, started_at, ended_at, last_activity_at, region, timezone, duration_seconds, created_at
             FROM partner_chat_sessions
             WHERE partner_id = ?
             ORDER BY datetime(COALESCE(ended_at, last_activity_at, started_at)) DESC, id DESC
