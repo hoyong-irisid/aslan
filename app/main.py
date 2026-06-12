@@ -103,7 +103,7 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v20"
+_PARTNER_UI_VERSION = "2026-06-11-v21"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
 # Canonical HTML pages — middleware redirects to ?v=<version> so Apache/LiteSpeed
