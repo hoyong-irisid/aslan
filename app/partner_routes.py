@@ -14,6 +14,11 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app.contacts import load_contacts
+from app.countries import (
+    list_countries_for_select,
+    region_key_for_country_iso,
+    resolve_country_name,
+)
 from app.partner_db import (
     activate_partner,
     admin_dashboard_data,
@@ -41,8 +46,7 @@ class SignupStartRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     company: str = Field(min_length=1, max_length=200)
     phone: str | None = Field(default=None, max_length=40)
-    region_key: str = Field(min_length=1, max_length=80)
-    country_iso: str | None = Field(default=None, max_length=2)
+    country: str = Field(min_length=1, max_length=120)
 
 
 class SignupVerifyRequest(BaseModel):
@@ -108,12 +112,19 @@ def _public_partner(p: dict[str, Any]) -> dict[str, Any]:
         "phone": p["phone"],
         "region_key": p["region_key"],
         "country_iso": p["country_iso"],
+        "country": p.get("country") or p.get("country_iso"),
         "active": p["active"],
         "source": p["source"],
         "verified_at": p["verified_at"],
         "created_at": p["created_at"],
         "updated_at": p["updated_at"],
     }
+
+
+@router.get("/countries")
+def list_countries() -> dict[str, Any]:
+    countries = list_countries_for_select()
+    return {"countries": countries, "default_country": "United States"}
 
 
 @router.get("/regions")
@@ -139,10 +150,20 @@ def list_regions() -> dict[str, Any]:
         }
 
 
+def _resolve_signup_country(country: str) -> tuple[str, str, str]:
+    try:
+        iso, country_name = resolve_country_name(country)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    region_key = region_key_for_country_iso(iso)
+    _validate_region(region_key)
+    return iso, country_name, region_key
+
+
 @router.post("/signup/start")
 def signup_start(body: SignupStartRequest) -> dict[str, Any]:
     settings = get_settings()
-    _validate_region(body.region_key)
+    iso, country_name, region_key = _resolve_signup_country(body.country)
     try:
         email = normalize_email(body.email)
     except ValueError as e:
@@ -162,8 +183,9 @@ def signup_start(body: SignupStartRequest) -> dict[str, Any]:
             "name": body.name.strip(),
             "company": body.company.strip(),
             "phone": (body.phone or "").strip() or None,
-            "region_key": body.region_key.strip(),
-            "country_iso": (body.country_iso or "").strip().upper() or None,
+            "region_key": region_key,
+            "country_iso": iso,
+            "country": country_name,
         }
     )
     ttl = max(5, int(settings.partner_otp_ttl_minutes or 10))
@@ -204,6 +226,7 @@ def signup_verify(body: SignupVerifyRequest) -> dict[str, Any]:
             phone=data.get("phone"),
             region_key=data["region_key"],
             country_iso=data.get("country_iso"),
+            country=data.get("country"),
             source="signup",
         )
     except ValueError as e:

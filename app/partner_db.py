@@ -81,6 +81,9 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_challenges(email);
             """
         )
+        cols = {row[1] for row in con.execute("PRAGMA table_info(partners)")}
+        if "country" not in cols:
+            con.execute("ALTER TABLE partners ADD COLUMN country TEXT")
 
 
 def normalize_email(email: str) -> str:
@@ -157,6 +160,7 @@ def row_to_partner(row: sqlite3.Row) -> dict[str, Any]:
         "phone": row["phone"],
         "region_key": row["region_key"],
         "country_iso": row["country_iso"],
+        "country": row["country"] if "country" in row.keys() else None,
         "code": row["code"],
         "active": _normalize_active(row["active"]),
         "source": row["source"],
@@ -329,6 +333,7 @@ def insert_partner(
     phone: str | None,
     region_key: str,
     country_iso: str | None,
+    country: str | None = None,
     code: str | None = None,
     source: str = "signup",
 ) -> dict[str, Any]:
@@ -346,7 +351,7 @@ def insert_partner(
             con.execute(
                 """
                 UPDATE partners SET name=?, company=?, phone=?, region_key=?,
-                    country_iso=?, code=?, active=1, source=?, verified_at=?, updated_at=?
+                    country_iso=?, country=?, code=?, active=1, source=?, verified_at=?, updated_at=?
                 WHERE id=?
                 """,
                 (
@@ -355,6 +360,7 @@ def insert_partner(
                     (phone or "").strip() or None,
                     region_key.strip(),
                     (country_iso or "").strip().upper() or None,
+                    (country or "").strip() or None,
                     c,
                     source,
                     now,
@@ -367,9 +373,9 @@ def insert_partner(
             cur = con.execute(
                 """
                 INSERT INTO partners
-                (email, name, company, phone, region_key, country_iso, code,
+                (email, name, company, phone, region_key, country_iso, country, code,
                  active, source, verified_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                 """,
                 (
                     e,
@@ -378,6 +384,7 @@ def insert_partner(
                     (phone or "").strip() or None,
                     region_key.strip(),
                     (country_iso or "").strip().upper() or None,
+                    (country or "").strip() or None,
                     c,
                     source,
                     now,
