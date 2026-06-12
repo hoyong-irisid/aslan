@@ -84,6 +84,8 @@ def init_db() -> None:
         cols = {row[1] for row in con.execute("PRAGMA table_info(partners)")}
         if "country" not in cols:
             con.execute("ALTER TABLE partners ADD COLUMN country TEXT")
+        if "note" not in cols:
+            con.execute("ALTER TABLE partners ADD COLUMN note TEXT")
 
 
 def normalize_email(email: str) -> str:
@@ -161,6 +163,7 @@ def row_to_partner(row: sqlite3.Row) -> dict[str, Any]:
         "region_key": row["region_key"],
         "country_iso": row["country_iso"],
         "country": row["country"] if "country" in row.keys() else None,
+        "note": row["note"] if "note" in row.keys() else None,
         "code": row["code"],
         "active": _normalize_active(row["active"]),
         "source": row["source"],
@@ -400,7 +403,7 @@ def insert_partner(
 
 
 def update_partner(partner_id: int, fields: dict[str, Any]) -> dict[str, Any]:
-    allowed = {"name", "company", "phone", "region_key", "country_iso", "country", "active", "email"}
+    allowed = {"name", "company", "phone", "region_key", "country_iso", "country", "note", "active", "email"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         raise ValueError("No fields to update")
@@ -410,6 +413,9 @@ def update_partner(partner_id: int, fields: dict[str, Any]) -> dict[str, Any]:
         updates["country_iso"] = str(updates["country_iso"]).strip().upper()
     if "country" in updates and updates["country"]:
         updates["country"] = str(updates["country"]).strip()
+    if "note" in updates:
+        note = updates["note"]
+        updates["note"] = (str(note).strip() or None) if note is not None else None
     if "active" in updates:
         updates["active"] = _active_int(updates["active"])
     sets = ", ".join(f"{k} = ?" for k in updates)

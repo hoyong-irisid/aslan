@@ -74,6 +74,7 @@ class AdminPartnerUpdate(BaseModel):
     company: str | None = Field(default=None, min_length=1, max_length=200)
     phone: str | None = Field(default=None, max_length=40)
     country: str | None = Field(default=None, min_length=1, max_length=120)
+    note: str | None = Field(default=None, max_length=2000)
     active: bool | None = None
 
 
@@ -113,6 +114,7 @@ def _public_partner(p: dict[str, Any]) -> dict[str, Any]:
         "region_key": p["region_key"],
         "country_iso": p["country_iso"],
         "country": country or p.get("country_iso"),
+        "note": p.get("note"),
         "active": p["active"],
         "source": p["source"],
         "verified_at": p["verified_at"],
