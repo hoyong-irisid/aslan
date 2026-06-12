@@ -97,14 +97,17 @@
     .settings-nav-back {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.45rem 0.35rem;
-      margin-bottom: 0.75rem;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      margin-bottom: 1.25rem;
       border-radius: 6px;
       text-decoration: none;
-      color: var(--iris-muted);
+      color: var(--iris-dark);
       font-size: 0.8rem;
       font-weight: 500;
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
     .settings-nav-back svg {
       width: 1rem;
@@ -114,6 +117,7 @@
     .settings-nav-back:hover {
       color: var(--iris-dark);
       background: var(--iris-surface);
+      border-color: var(--iris-border);
     }
     .settings-nav h2 {
       margin: 0 0 0.65rem;
@@ -228,10 +232,11 @@
       <div class="settings-shell">
         <aside class="settings-nav" aria-label="Settings menu">
           <a href="/partner/manage" class="settings-nav-back">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 12H5"/>
+              <path d="M12 19l-7-7 7-7"/>
             </svg>
-            Back to Partners
+            Back to list
           </a>
           <h2>Settings</h2>
           <a href="#domains" class="settings-nav-item is-active">Domains</a>
