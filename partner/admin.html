@@ -447,7 +447,7 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Region</th>
+            <th>Country</th>
             <th>Company</th>
             <th>Name</th>
             <th>Email</th>
@@ -486,21 +486,17 @@
             <input type="text" id="f-company" required />
           </div>
           <div class="field">
-            <label for="f-phone">Phone</label>
+            <label for="f-phone">Phone (optional)</label>
             <input type="tel" id="f-phone" />
           </div>
           <div class="field">
-            <label for="f-region">Region *</label>
+            <label for="f-country">Country *</label>
             <div class="select-wrap">
-              <select id="f-region" required></select>
+              <select id="f-country" required></select>
               <svg class="select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
               </svg>
             </div>
-          </div>
-          <div class="field">
-            <label for="f-country">Country ISO</label>
-            <input type="text" id="f-country" maxlength="2" placeholder="e.g. US, KR" />
           </div>
           <label class="checkbox-field hidden" id="f-active-wrap">
             <input type="checkbox" id="f-active" checked />
@@ -541,7 +537,7 @@
     const TRASH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`;
 
     let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
-    let regions = [];
+    let countries = [];
     let lastPartners = [];
     let confirmResolve = null;
 
@@ -557,8 +553,14 @@
       if (!err) setTimeout(() => b.classList.add("hidden"), 4000);
     }
 
-    function regionLabel(key) {
-      return (regions.find((r) => r.key === key) || {}).label || key;
+    async function loadCountries() {
+      const r = await fetch(API + "/api/partner/countries");
+      const data = await r.json();
+      countries = data.countries || [];
+      const sel = document.getElementById("f-country");
+      sel.innerHTML = countries.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+      const def = data.default_country || "United States";
+      if ([...sel.options].some((o) => o.value === def)) sel.value = def;
     }
 
     function confirmDialog({ title, message, confirmLabel = "Confirm", danger = false }) {
@@ -614,12 +616,11 @@
       return data;
     }
 
-    async function loadRegions() {
-      const r = await fetch(API + "/api/partner/regions");
-      const data = await r.json();
-      regions = data.regions || [];
-      const sel = document.getElementById("f-region");
-      sel.innerHTML = regions.map((x) => `<option value="${x.key}">${x.label}</option>`).join("");
+    function partnerCountry(p) {
+      if (p.country) return p.country;
+      const byIso = countries.find((c) => c.iso === p.country_iso);
+      if (byIso) return byIso.name;
+      return p.country_iso || "—";
     }
 
     function renderStats(s) {
@@ -645,7 +646,7 @@
         return `
         <tr>
           <td>${p.id}</td>
-          <td>${esc(regionLabel(p.region_key))}</td>
+          <td>${esc(partnerCountry(p))}</td>
           <td>${esc(p.company)}</td>
           <td>${esc(p.name)}</td>
           <td>${esc(p.email)}</td>
@@ -692,8 +693,14 @@
       document.getElementById("f-name").value = partner?.name || "";
       document.getElementById("f-company").value = partner?.company || "";
       document.getElementById("f-phone").value = partner?.phone || "";
-      document.getElementById("f-region").value = partner?.region_key || (regions[0]?.key || "");
-      document.getElementById("f-country").value = partner?.country_iso || "";
+      const countrySel = document.getElementById("f-country");
+      const countryVal = partner?.country || partner?.country_iso || "United States";
+      if ([...countrySel.options].some((o) => o.value === countryVal)) {
+        countrySel.value = countryVal;
+      } else if (partner?.country_iso) {
+        const byIso = countries.find((c) => c.iso === partner.country_iso);
+        if (byIso) countrySel.value = byIso.name;
+      }
       document.getElementById("f-active-wrap").classList.toggle("hidden", mode === "add");
       document.getElementById("f-active").checked = partner ? partnerIsActive(partner) : true;
       document.getElementById("modal").classList.remove("hidden");
@@ -715,7 +722,7 @@
         sessionStorage.setItem(KEY_STORAGE, adminKey);
         document.getElementById("auth-gate").classList.add("hidden");
         document.getElementById("app").classList.remove("hidden");
-        await loadRegions();
+        await loadCountries();
         await refresh();
       } catch (e) {
         banner(e.message || "Invalid key", true);
@@ -745,8 +752,7 @@
         name: document.getElementById("f-name").value.trim(),
         company: document.getElementById("f-company").value.trim(),
         phone: document.getElementById("f-phone").value.trim() || null,
-        region_key: document.getElementById("f-region").value,
-        country_iso: document.getElementById("f-country").value.trim().toUpperCase() || null,
+        country: document.getElementById("f-country").value,
       };
       try {
         let msg = "Saved";

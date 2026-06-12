@@ -58,6 +58,16 @@ def resolve_country_name(name: str) -> tuple[str, str]:
     return iso, canonical
 
 
+def country_name_for_iso(iso2: str | None) -> str | None:
+    cc = (iso2 or "").strip().upper()
+    if len(cc) != 2:
+        return None
+    for row in _country_rows():
+        if row["iso"] == cc:
+            return row["name"]
+    return None
+
+
 def region_key_for_country_iso(iso2: str) -> str:
     try:
         contacts = load_contacts()

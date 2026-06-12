@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.contacts import load_contacts
 from app.countries import (
+    country_name_for_iso,
     list_countries_for_select,
     region_key_for_country_iso,
     resolve_country_name,
@@ -59,8 +60,7 @@ class AdminPartnerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     company: str = Field(min_length=1, max_length=200)
     phone: str | None = Field(default=None, max_length=40)
-    region_key: str = Field(min_length=1, max_length=80)
-    country_iso: str | None = Field(default=None, max_length=2)
+    country: str = Field(min_length=1, max_length=120)
     send_email: bool = True
 
 
@@ -73,8 +73,7 @@ class AdminPartnerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     company: str | None = Field(default=None, min_length=1, max_length=200)
     phone: str | None = Field(default=None, max_length=40)
-    region_key: str | None = Field(default=None, min_length=1, max_length=80)
-    country_iso: str | None = Field(default=None, max_length=2)
+    country: str | None = Field(default=None, min_length=1, max_length=120)
     active: bool | None = None
 
 
@@ -104,6 +103,7 @@ def _validate_region(region_key: str) -> None:
 
 
 def _public_partner(p: dict[str, Any]) -> dict[str, Any]:
+    country = p.get("country") or country_name_for_iso(p.get("country_iso"))
     return {
         "id": p["id"],
         "email": p["email"],
@@ -112,7 +112,7 @@ def _public_partner(p: dict[str, Any]) -> dict[str, Any]:
         "phone": p["phone"],
         "region_key": p["region_key"],
         "country_iso": p["country_iso"],
-        "country": p.get("country") or p.get("country_iso"),
+        "country": country or p.get("country_iso"),
         "active": p["active"],
         "source": p["source"],
         "verified_at": p["verified_at"],
@@ -293,7 +293,7 @@ def admin_create_partner(
 ) -> dict[str, Any]:
     settings = get_settings()
     _require_admin(x_partner_admin_key, settings)
-    _validate_region(body.region_key)
+    iso, country_name, region_key = _resolve_signup_country(body.country)
     try:
         email = normalize_email(body.email)
         partner = insert_partner(
@@ -301,8 +301,9 @@ def admin_create_partner(
             name=body.name,
             company=body.company,
             phone=body.phone,
-            region_key=body.region_key,
-            country_iso=body.country_iso,
+            region_key=region_key,
+            country_iso=iso,
+            country=country_name,
             source="admin",
         )
     except ValueError as e:
@@ -350,6 +351,11 @@ def _admin_update_partner_impl(
     if get_partner(partner_id) is None:
         raise HTTPException(status_code=404, detail="Partner not found")
     fields = body.model_dump(exclude_unset=True)
+    if "country" in fields and fields["country"]:
+        iso, country_name, region_key = _resolve_signup_country(fields["country"])
+        fields["country_iso"] = iso
+        fields["country"] = country_name
+        fields["region_key"] = region_key
     if "region_key" in fields and fields["region_key"]:
         _validate_region(fields["region_key"])
     try:

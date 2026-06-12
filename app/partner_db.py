@@ -400,7 +400,7 @@ def insert_partner(
 
 
 def update_partner(partner_id: int, fields: dict[str, Any]) -> dict[str, Any]:
-    allowed = {"name", "company", "phone", "region_key", "country_iso", "active", "email"}
+    allowed = {"name", "company", "phone", "region_key", "country_iso", "country", "active", "email"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         raise ValueError("No fields to update")
@@ -408,6 +408,8 @@ def update_partner(partner_id: int, fields: dict[str, Any]) -> dict[str, Any]:
         updates["email"] = normalize_email(str(updates["email"]))
     if "country_iso" in updates and updates["country_iso"]:
         updates["country_iso"] = str(updates["country_iso"]).strip().upper()
+    if "country" in updates and updates["country"]:
+        updates["country"] = str(updates["country"]).strip()
     if "active" in updates:
         updates["active"] = _active_int(updates["active"])
     sets = ", ".join(f"{k} = ?" for k in updates)
