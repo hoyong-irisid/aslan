@@ -94,6 +94,9 @@ def init_db() -> None:
                 last_activity_at TEXT NOT NULL,
                 region TEXT,
                 timezone TEXT,
+                geo_city TEXT,
+                geo_region TEXT,
+                geo_country TEXT,
                 duration_seconds INTEGER,
                 created_at TEXT NOT NULL
             );
@@ -111,6 +114,12 @@ def init_db() -> None:
         session_cols = {row[1] for row in con.execute("PRAGMA table_info(partner_chat_sessions)")}
         if session_cols and "timezone" not in session_cols:
             con.execute("ALTER TABLE partner_chat_sessions ADD COLUMN timezone TEXT")
+        if session_cols and "geo_city" not in session_cols:
+            con.execute("ALTER TABLE partner_chat_sessions ADD COLUMN geo_city TEXT")
+        if session_cols and "geo_region" not in session_cols:
+            con.execute("ALTER TABLE partner_chat_sessions ADD COLUMN geo_region TEXT")
+        if session_cols and "geo_country" not in session_cols:
+            con.execute("ALTER TABLE partner_chat_sessions ADD COLUMN geo_country TEXT")
 
 
 def get_partner_setting(key: str, default: str = "") -> str:
@@ -216,19 +225,28 @@ def _normalize_session_timezone(timezone: str | None) -> str | None:
     return tz or None
 
 
+def _normalize_geo_field(value: str | None) -> str | None:
+    v = (value or "").strip()
+    return v or None
+
+
 def start_partner_chat_session(
     partner_id: int,
     *,
     region: str | None = None,
     timezone: str | None = None,
+    geo_city: str | None = None,
+    geo_region: str | None = None,
+    geo_country: str | None = None,
 ) -> int:
     now = _utc_now()
     with _conn() as con:
         cur = con.execute(
             """
             INSERT INTO partner_chat_sessions
-                (partner_id, started_at, last_activity_at, region, timezone, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (partner_id, started_at, last_activity_at, region, timezone,
+                 geo_city, geo_region, geo_country, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 partner_id,
@@ -236,6 +254,9 @@ def start_partner_chat_session(
                 now,
                 _normalize_session_region(region),
                 _normalize_session_timezone(timezone),
+                _normalize_geo_field(geo_city),
+                _normalize_geo_field(geo_region),
+                _normalize_geo_field(geo_country),
                 now,
             ),
         )
@@ -261,6 +282,42 @@ def touch_partner_chat_session(
             WHERE id = ? AND ended_at IS NULL
             """,
             (now, region_val, timezone_val, session_id),
+        )
+
+
+def update_session_geo_if_empty(
+    session_id: int,
+    *,
+    geo_city: str | None = None,
+    geo_region: str | None = None,
+    geo_country: str | None = None,
+) -> None:
+    city = _normalize_geo_field(geo_city)
+    region = _normalize_geo_field(geo_region)
+    country = _normalize_geo_field(geo_country)
+    if not city and not region and not country:
+        return
+    with _conn() as con:
+        row = con.execute(
+            """
+            SELECT geo_city, geo_region, geo_country
+            FROM partner_chat_sessions
+            WHERE id = ?
+            LIMIT 1
+            """,
+            (session_id,),
+        ).fetchone()
+        if not row:
+            return
+        if row["geo_city"] or row["geo_region"] or row["geo_country"]:
+            return
+        con.execute(
+            """
+            UPDATE partner_chat_sessions
+            SET geo_city = ?, geo_region = ?, geo_country = ?
+            WHERE id = ?
+            """,
+            (city, region, country, session_id),
         )
 
 
@@ -303,6 +360,9 @@ def _chat_session_row(row: sqlite3.Row) -> dict[str, Any]:
         "last_activity_at": row["last_activity_at"],
         "region": row["region"],
         "timezone": row["timezone"] if "timezone" in row.keys() else None,
+        "geo_city": row["geo_city"] if "geo_city" in row.keys() else None,
+        "geo_region": row["geo_region"] if "geo_region" in row.keys() else None,
+        "geo_country": row["geo_country"] if "geo_country" in row.keys() else None,
         "duration_seconds": row["duration_seconds"],
         "created_at": row["created_at"],
     }
@@ -312,7 +372,8 @@ def list_partner_chat_sessions(partner_id: int, *, limit: int = 500) -> list[dic
     with _conn() as con:
         rows = con.execute(
             """
-            SELECT id, partner_id, started_at, ended_at, last_activity_at, region, timezone, duration_seconds, created_at
+            SELECT id, partner_id, started_at, ended_at, last_activity_at, region, timezone,
+                   geo_city, geo_region, geo_country, duration_seconds, created_at
             FROM partner_chat_sessions
             WHERE partner_id = ?
             ORDER BY datetime(COALESCE(ended_at, last_activity_at, started_at)) DESC, id DESC

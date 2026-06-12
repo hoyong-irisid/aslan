@@ -210,6 +210,9 @@ def _handle_partner_gate(
     message: str,
     lang: str,
     partner_token: str | None,
+    *,
+    client_ip: str | None = None,
+    client_timezone: str | None = None,
 ) -> ChatResult | None:
     """
     Returns a ChatResult and short-circuits /chat when the turn is purely about
@@ -227,7 +230,11 @@ def _handle_partner_gate(
         try:
             from app.partner import record_partner_chat_activity
 
-            record_partner_chat_activity(token)
+            record_partner_chat_activity(
+                token,
+                client_timezone=client_timezone,
+                client_ip=client_ip,
+            )
         except Exception:
             pass
         return ChatResult(
@@ -272,11 +279,18 @@ def handle_chat(
     partner_token: str | None = None,
     chat_history: list[dict[str, str]] | None = None,
     client_timezone: str | None = None,
+    client_ip: str | None = None,
 ) -> ChatResult:
     settings = get_settings()
     lang = detect_language_iso(message)
 
-    gate = _handle_partner_gate(message, lang, partner_token)
+    gate = _handle_partner_gate(
+        message,
+        lang,
+        partner_token,
+        client_ip=client_ip,
+        client_timezone=client_timezone,
+    )
     if gate is not None:
         return gate
 
@@ -289,7 +303,12 @@ def handle_chat(
         try:
             from app.partner import record_partner_chat_activity
 
-            record_partner_chat_activity(partner_token, region_hint=region_hint, client_timezone=client_timezone)
+            record_partner_chat_activity(
+                partner_token,
+                region_hint=region_hint,
+                client_timezone=client_timezone,
+                client_ip=client_ip,
+            )
         except Exception:
             pass
     partner_meta_token = partner_token if is_partner else None

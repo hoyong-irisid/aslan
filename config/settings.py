@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = False
     smtp_transcript_subject: str = "ASLAN — IRIS ID chat transcript"
 
+    geoip_enabled: bool = True
+    geoip_timeout_sec: float = 2.0
+
 
 @lru_cache
 def get_settings() -> Settings:

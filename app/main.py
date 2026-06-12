@@ -107,7 +107,7 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v49"
+_PARTNER_UI_VERSION = "2026-06-11-v50"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
 _PARTNER_SETTINGS_PATH = "/partner/settings"
@@ -390,7 +390,10 @@ def _log_config_on_startup() -> None:
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(body: ChatRequest) -> ChatResponse:
+def chat(body: ChatRequest, request: Request) -> ChatResponse:
+    from app.geoip import extract_client_ip
+
+    client_ip = extract_client_ip(request)
     try:
         result = handle_chat(
             body.message,
@@ -398,6 +401,7 @@ def chat(body: ChatRequest) -> ChatResponse:
             partner_token=body.partner_token,
             chat_history=body.chat_history,
             client_timezone=body.client_timezone,
+            client_ip=client_ip,
         )
     except Exception as exc:
         return ChatResponse(

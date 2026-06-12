@@ -644,7 +644,19 @@ def _timezone_location_label(timezone_name: str) -> str:
     return tz
 
 
+def _format_geo_location(row: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ("geo_city", "geo_region", "geo_country"):
+        val = (row.get(key) or "").strip()
+        if val:
+            parts.append(val)
+    return ", ".join(parts)
+
+
 def _session_location(row: dict[str, Any], partner: dict[str, Any] | None = None) -> str:
+    geo = _format_geo_location(row)
+    if geo:
+        return geo
     tz = (row.get("timezone") or "").strip()
     if tz:
         return _timezone_location_label(tz)
@@ -682,6 +694,9 @@ def _serialize_activity_log(
         "time": time_str,
         "region": row.get("region"),
         "timezone": row.get("timezone"),
+        "geo_city": row.get("geo_city"),
+        "geo_region": row.get("geo_region"),
+        "geo_country": row.get("geo_country"),
         "location": _session_location(row, partner),
         "duration_seconds": duration_seconds,
         "duration": _format_duration(duration_seconds),
