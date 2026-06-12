@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <link rel="icon" type="image/png" href="/partner/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>IRIS ID — Partner Admin</title>
+  <style>
+    :root {
+      --iris-slate: #475569;
+      --iris-dark: #1e293b;
+      --iris-accent: #0ea5e9;
+      --iris-bg: #ffffff;
+      --iris-border: #e2e8f0;
+      --iris-muted: #64748b;
+      --iris-surface: #f8fafc;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+    * { box-sizing: border-box; }
+    body, input, button {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      margin: 0;
+      background: var(--iris-bg);
+      color: var(--iris-dark);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .page-shell { max-width: 960px; margin: 0 auto; padding: 1rem 1.25rem 1.25rem; }
+    .portal-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--iris-border);
+    }
+    .portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .portal-brand img { width: 36px; height: 36px; object-fit: contain; }
+    .portal-brand h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+    .auth-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 45vh;
+      padding: 2rem 0 3rem;
+    }
+    .auth-gate-card { width: 100%; max-width: 360px; }
+    .auth-gate-card p {
+      margin: 0 0 1rem;
+      text-align: center;
+      color: var(--iris-muted);
+      font-size: 0.9rem;
+    }
+    .auth-gate-form { display: flex; flex-direction: column; gap: 0.65rem; }
+    .auth-gate-form input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+    }
+    .auth-gate-form .btn { width: 100%; margin-top: 0.15rem; }
+    .log-nav-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      margin-bottom: 1.25rem;
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--iris-dark);
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .log-nav-back svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+    .log-nav-back:hover { background: var(--iris-surface); }
+    .log-page-title { margin: 0 0 0.35rem; font-size: 1.15rem; font-weight: 600; }
+    .log-partner-meta {
+      margin: 0 0 1rem;
+      font-size: 0.875rem;
+      color: var(--iris-muted);
+    }
+    .log-panel {
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .log-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .log-panel-header h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .btn-icon-download {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem;
+      min-width: 2.125rem;
+      min-height: 2.125rem;
+      border-radius: 6px;
+      border: 1px solid var(--iris-border);
+      background: #fff;
+      color: var(--iris-muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn-icon-download svg { width: 1.125rem; height: 1.125rem; display: block; }
+    .btn-icon-download:hover {
+      background: var(--iris-surface);
+      color: var(--iris-dark);
+    }
+    .btn-icon-download:disabled { opacity: 0.55; cursor: not-allowed; }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th, td {
+      padding: 0.65rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--iris-border);
+      vertical-align: middle;
+    }
+    th {
+      background: var(--iris-surface);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--iris-muted);
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafbfc; }
+    .empty-row td {
+      text-align: center;
+      color: var(--iris-muted);
+      padding: 2rem 0.75rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 0.9rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--iris-border);
+      background: var(--iris-slate);
+      color: #fff;
+      border-color: var(--iris-slate);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .btn:hover { background: var(--iris-dark); border-color: var(--iris-dark); }
+    .msg {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .msg.err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .msg.ok { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <div class="portal-topbar">
+      <div class="portal-brand">
+        <img src="/partner/symbol-irisid-color-m.png" width="36" height="36" alt="" />
+        <h1>Partner Admin</h1>
+      </div>
+    </div>
+
+    <div id="banner" class="msg hidden"></div>
+
+    <div id="auth-gate" class="auth-gate">
+      <div class="auth-gate-card">
+        <p>Enter your admin API key to view partner activity logs.</p>
+        <div class="auth-gate-form">
+          <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
+          <button type="button" class="btn" id="btn-unlock">Unlock</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="app" class="hidden">
+      <a href="/partner/manage" class="log-nav-back">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5"/>
+          <path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Back to list
+      </a>
+      <h2 class="log-page-title">Activity log</h2>
+      <p class="log-partner-meta" id="partner-meta"></p>
+      <section class="log-panel">
+        <div class="log-panel-header">
+          <h2>Sessions</h2>
+          <button type="button" class="btn-icon-download" id="btn-download" title="Download spreadsheet" aria-label="Download spreadsheet">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12"/>
+              <path d="m7 10 5 5 5-5"/>
+              <path d="M5 21h14"/>
+            </svg>
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Location</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="log-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API = window.location.origin;
+    const KEY_STORAGE = "aslan_partner_admin_key";
+    let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
+    const partnerId = new URLSearchParams(window.location.search).get("id");
+
+    function headers() {
+      return { "Content-Type": "application/json", "X-Partner-Admin-Key": adminKey };
+    }
+
+    function banner(text, err) {
+      const b = document.getElementById("banner");
+      b.textContent = text;
+      b.className = "msg " + (err ? "err" : "ok");
+      b.classList.remove("hidden");
+      if (!err) setTimeout(() => b.classList.add("hidden"), 4000);
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(API + path, {
+        ...opts,
+        headers: { ...headers(), ...(opts.headers || {}) },
+        cache: "no-store",
+      });
+      if (opts.raw) {
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          const detail = typeof data.detail === "string" ? data.detail : r.statusText;
+          throw new Error(detail);
+        }
+        return r;
+      }
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : r.statusText;
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    function renderLogs(logs) {
+      const tb = document.getElementById("log-tbody");
+      if (!logs.length) {
+        tb.innerHTML = '<tr class="empty-row"><td colspan="4">No activity recorded yet.</td></tr>';
+        return;
+      }
+      tb.innerHTML = logs.map((row) => `
+        <tr>
+          <td>${esc(row.date)}</td>
+          <td>${esc(row.time)}</td>
+          <td>${esc(row.location)}</td>
+          <td>${esc(row.duration)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderPartnerMeta(partner) {
+      const el = document.getElementById("partner-meta");
+      const parts = [partner.name, partner.company, partner.email].filter(Boolean);
+      el.textContent = parts.join(" · ");
+    }
+
+    async function loadLogs() {
+      if (!partnerId) throw new Error("Missing partner id");
+      const data = await api(`/api/partner/admin/partners/${partnerId}/activity-logs?t=${Date.now()}`);
+      renderPartnerMeta(data.partner || {});
+      renderLogs(data.logs || []);
+      return data;
+    }
+
+    document.getElementById("btn-unlock").addEventListener("click", async () => {
+      adminKey = document.getElementById("admin-key").value.trim();
+      if (!adminKey) return;
+      try {
+        await loadLogs();
+        sessionStorage.setItem(KEY_STORAGE, adminKey);
+        document.getElementById("auth-gate").classList.add("hidden");
+        document.getElementById("app").classList.remove("hidden");
+      } catch (e) {
+        banner(e.message || "Invalid key", true);
+      }
+    });
+
+    if (adminKey) {
+      document.getElementById("admin-key").value = adminKey;
+      document.getElementById("btn-unlock").click();
+    }
+
+    window.addEventListener("pageshow", () => {
+      if (!adminKey) return;
+      const app = document.getElementById("app");
+      if (app && !app.classList.contains("hidden")) {
+        loadLogs().catch((err) => banner(err.message || "Could not reload logs", true));
+      }
+    });
+
+    document.getElementById("btn-download").addEventListener("click", async () => {
+      const btn = document.getElementById("btn-download");
+      btn.disabled = true;
+      try {
+        const r = await api(`/api/partner/admin/partners/${partnerId}/activity-logs/export`, { raw: true });
+        const blob = await r.blob();
+        const disposition = r.headers.get("Content-Disposition") || "";
+        const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+        const filename = match ? match[1] : `partner-${partnerId}-activity.csv`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        banner(err.message || "Download failed", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

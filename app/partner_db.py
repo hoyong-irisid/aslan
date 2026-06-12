@@ -85,6 +85,19 @@ def init_db() -> None:
                 value TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS partner_chat_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                partner_id INTEGER NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                last_activity_at TEXT NOT NULL,
+                region TEXT,
+                duration_seconds INTEGER,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_partner_chat_sessions_partner
+                ON partner_chat_sessions(partner_id, started_at DESC);
             """
         )
         cols = {row[1] for row in con.execute("PRAGMA table_info(partners)")}
@@ -175,6 +188,119 @@ def touch_partner_activity_by_code(code: str) -> None:
             "UPDATE partners SET last_activity_at = ?, updated_at = ? WHERE code = ?",
             (now, now, c),
         )
+
+
+def get_partner_id_by_code(code: str) -> int | None:
+    c = (code or "").strip().upper()
+    if not c:
+        return None
+    with _conn() as con:
+        row = con.execute(
+            "SELECT id FROM partners WHERE code = ? LIMIT 1",
+            (c,),
+        ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def _normalize_session_region(region: str | None) -> str | None:
+    r = (region or "").strip().upper()
+    return r or None
+
+
+def start_partner_chat_session(partner_id: int, *, region: str | None = None) -> int:
+    now = _utc_now()
+    with _conn() as con:
+        cur = con.execute(
+            """
+            INSERT INTO partner_chat_sessions
+                (partner_id, started_at, last_activity_at, region, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (partner_id, now, now, _normalize_session_region(region), now),
+        )
+        return int(cur.lastrowid)
+
+
+def touch_partner_chat_session(session_id: int, *, region: str | None = None) -> None:
+    now = _utc_now()
+    region_val = _normalize_session_region(region)
+    with _conn() as con:
+        if region_val:
+            con.execute(
+                """
+                UPDATE partner_chat_sessions
+                SET last_activity_at = ?, region = COALESCE(?, region)
+                WHERE id = ? AND ended_at IS NULL
+                """,
+                (now, region_val, session_id),
+            )
+        else:
+            con.execute(
+                """
+                UPDATE partner_chat_sessions
+                SET last_activity_at = ?
+                WHERE id = ? AND ended_at IS NULL
+                """,
+                (now, session_id),
+            )
+
+
+def close_partner_chat_session(session_id: int) -> None:
+    with _conn() as con:
+        row = con.execute(
+            """
+            SELECT started_at, last_activity_at
+            FROM partner_chat_sessions
+            WHERE id = ? AND ended_at IS NULL
+            LIMIT 1
+            """,
+            (session_id,),
+        ).fetchone()
+        if not row:
+            return
+        started = datetime.fromisoformat(str(row["started_at"]))
+        ended = datetime.fromisoformat(str(row["last_activity_at"]))
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if ended.tzinfo is None:
+            ended = ended.replace(tzinfo=timezone.utc)
+        duration = max(0, int((ended - started).total_seconds()))
+        con.execute(
+            """
+            UPDATE partner_chat_sessions
+            SET ended_at = ?, duration_seconds = ?
+            WHERE id = ?
+            """,
+            (row["last_activity_at"], duration, session_id),
+        )
+
+
+def _chat_session_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "partner_id": row["partner_id"],
+        "started_at": row["started_at"],
+        "ended_at": row["ended_at"],
+        "last_activity_at": row["last_activity_at"],
+        "region": row["region"],
+        "duration_seconds": row["duration_seconds"],
+        "created_at": row["created_at"],
+    }
+
+
+def list_partner_chat_sessions(partner_id: int, *, limit: int = 500) -> list[dict[str, Any]]:
+    with _conn() as con:
+        rows = con.execute(
+            """
+            SELECT id, partner_id, started_at, ended_at, last_activity_at, region, duration_seconds, created_at
+            FROM partner_chat_sessions
+            WHERE partner_id = ?
+            ORDER BY datetime(COALESCE(ended_at, last_activity_at, started_at)) DESC, id DESC
+            LIMIT ?
+            """,
+            (partner_id, limit),
+        ).fetchall()
+    return [_chat_session_row(r) for r in rows]
 
 
 def deactivate_inactive_partners(threshold_days: int) -> int:

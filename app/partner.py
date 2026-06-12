@@ -22,7 +22,7 @@ from config.settings import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 
-_SESSIONS: dict[str, tuple[float, str | None]] = {}  # token -> (expiry, partner code)
+_SESSIONS: dict[str, tuple[float, str | None, int | None]] = {}  # token -> (expiry, code, session_id)
 
 _PARTNER_INTENT_RE = re.compile(
     r"(?:(?<![a-z])partner(?![a-z])|"              # partner
@@ -96,25 +96,52 @@ def extract_valid_code(message: str, settings: Settings | None = None) -> str | 
     return None
 
 
-def _session_entry(token: str | None) -> tuple[float, str | None] | None:
+def _close_session_log(session_id: int | None) -> None:
+    if not session_id:
+        return
+    try:
+        from app.partner_db import close_partner_chat_session
+
+        close_partner_chat_session(session_id)
+    except Exception:
+        logger.exception("Failed to close partner chat session %s", session_id)
+
+
+def _session_entry(token: str | None) -> tuple[float, str | None, int | None] | None:
     if not token:
         return None
     entry = _SESSIONS.get(token)
     if not entry:
         return None
-    exp, code = entry
+    exp, code, session_id = entry
     if exp < time.time():
+        _close_session_log(session_id)
         _SESSIONS.pop(token, None)
         return None
     return entry
 
 
-def issue_partner_token(settings: Settings | None = None, *, code: str | None = None) -> str:
+def issue_partner_token(
+    settings: Settings | None = None,
+    *,
+    code: str | None = None,
+    region_hint: str | None = None,
+) -> str:
     s = settings or get_settings()
     token = secrets.token_urlsafe(24)
     ttl = max(1, int(s.partner_session_ttl_minutes)) * 60
     normalized_code = (code or "").strip().upper() or None
-    _SESSIONS[token] = (time.time() + ttl, normalized_code)
+    session_id: int | None = None
+    if normalized_code:
+        try:
+            from app.partner_db import get_partner_id_by_code, start_partner_chat_session
+
+            partner_id = get_partner_id_by_code(normalized_code)
+            if partner_id:
+                session_id = start_partner_chat_session(partner_id, region=region_hint)
+        except Exception:
+            logger.exception("Failed to start partner chat session for code %s", normalized_code)
+    _SESSIONS[token] = (time.time() + ttl, normalized_code, session_id)
     return token
 
 
@@ -129,9 +156,35 @@ def partner_code_for_session(token: str | None) -> str | None:
     return entry[1]
 
 
+def partner_session_id_for_token(token: str | None) -> int | None:
+    entry = _session_entry(token)
+    if not entry:
+        return None
+    return entry[2]
+
+
+def record_partner_chat_activity(token: str | None, *, region_hint: str | None = None) -> None:
+    entry = _session_entry(token)
+    if not entry:
+        return
+    _, code, session_id = entry
+    try:
+        from app.partner_db import touch_partner_activity_by_code, touch_partner_chat_session
+
+        if session_id:
+            touch_partner_chat_session(session_id, region=region_hint)
+        if code:
+            touch_partner_activity_by_code(code)
+    except Exception:
+        logger.exception("Failed to record partner chat activity")
+
+
 def revoke_partner_token(token: str | None) -> None:
-    if token:
-        _SESSIONS.pop(token, None)
+    if not token:
+        return
+    entry = _SESSIONS.pop(token, None)
+    if entry:
+        _close_session_log(entry[2])
 
 
 def partner_enabled(settings: Settings | None = None) -> bool:

@@ -225,9 +225,9 @@ def _handle_partner_gate(
     if code is not None:
         token = issue_partner_token(code=code)
         try:
-            from app.partner_db import touch_partner_activity_by_code
+            from app.partner import record_partner_chat_activity
 
-            touch_partner_activity_by_code(code)
+            record_partner_chat_activity(token)
         except Exception:
             pass
         return ChatResult(
@@ -286,12 +286,9 @@ def handle_chat(
     is_partner = is_partner_session(partner_token)
     if is_partner:
         try:
-            from app.partner import partner_code_for_session
-            from app.partner_db import touch_partner_activity_by_code
+            from app.partner import record_partner_chat_activity
 
-            session_code = partner_code_for_session(partner_token)
-            if session_code:
-                touch_partner_activity_by_code(session_code)
+            record_partner_chat_activity(partner_token, region_hint=region_hint)
         except Exception:
             pass
     partner_meta_token = partner_token if is_partner else None

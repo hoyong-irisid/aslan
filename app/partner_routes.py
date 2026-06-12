@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 import secrets
@@ -11,6 +13,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.contacts import load_contacts
@@ -39,6 +42,7 @@ from app.partner_db import (
     get_partner,
     get_partner_by_email,
     insert_partner,
+    list_partner_chat_sessions,
     list_partners,
     normalize_email,
     regenerate_code,
@@ -571,3 +575,117 @@ def admin_save_activity_timing(
     _require_admin(x_partner_admin_key, settings)
     days = save_inactivity_days(body.inactivity_days)
     return {"status": "saved", "inactivity_days": days, "unit": "day(s)"}
+
+
+def _parse_iso_dt(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _format_duration(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes, sec = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m {sec}s" if sec else f"{minutes}m"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h {minutes}m" if minutes else f"{hours}h"
+
+
+def _session_duration_seconds(row: dict[str, Any]) -> int:
+    stored = row.get("duration_seconds")
+    if stored is not None and row.get("ended_at"):
+        return max(0, int(stored))
+    started = _parse_iso_dt(row.get("started_at"))
+    ended = _parse_iso_dt(row.get("last_activity_at") or row.get("ended_at"))
+    if not started or not ended:
+        return 0
+    return max(0, int((ended - started).total_seconds()))
+
+
+def _session_location(row: dict[str, Any]) -> str:
+    region = (row.get("region") or "").strip().upper()
+    if not region:
+        return "—"
+    name = country_name_for_iso(region)
+    if name:
+        return f"{name} ({region})"
+    return region
+
+
+def _serialize_activity_log(row: dict[str, Any]) -> dict[str, Any]:
+    started = _parse_iso_dt(row.get("started_at"))
+    duration_seconds = _session_duration_seconds(row)
+    date_str = started.strftime("%Y-%m-%d") if started else "—"
+    time_str = started.strftime("%H:%M:%S UTC") if started else "—"
+    return {
+        "id": row["id"],
+        "started_at": row.get("started_at"),
+        "date": date_str,
+        "time": time_str,
+        "region": row.get("region"),
+        "location": _session_location(row),
+        "duration_seconds": duration_seconds,
+        "duration": _format_duration(duration_seconds),
+        "ended_at": row.get("ended_at"),
+    }
+
+
+def _activity_logs_csv(partner: dict[str, Any], logs: list[dict[str, Any]]) -> str:
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Partner", partner.get("name", ""), partner.get("email", "")])
+    writer.writerow(["Company", partner.get("company", ""), ""])
+    writer.writerow([])
+    writer.writerow(["Date", "Time (UTC)", "Location", "Duration"])
+    for row in logs:
+        item = _serialize_activity_log(row)
+        writer.writerow([item["date"], item["time"], item["location"], item["duration"]])
+    return buf.getvalue()
+
+
+@router.get("/admin/partners/{partner_id}/activity-logs")
+def admin_partner_activity_logs(
+    partner_id: int,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    partner = get_partner(partner_id)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    rows = list_partner_chat_sessions(partner_id)
+    return {
+        "partner": _public_partner(partner),
+        "logs": [_serialize_activity_log(r) for r in rows],
+    }
+
+
+@router.get("/admin/partners/{partner_id}/activity-logs/export")
+def admin_export_partner_activity_logs(
+    partner_id: int,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> Response:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    partner = get_partner(partner_id)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    public = _public_partner(partner)
+    rows = list_partner_chat_sessions(partner_id)
+    csv_text = _activity_logs_csv(public, rows)
+    slug = (public.get("company") or "partner").replace(" ", "-").lower()[:40]
+    filename = f"partner-{partner_id}-{slug}-activity.csv"
+    return Response(
+        content="\ufeff" + csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

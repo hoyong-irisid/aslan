@@ -298,6 +298,17 @@
       padding: 0.65rem 0.5rem;
       vertical-align: middle;
     }
+    .col-log {
+      width: 4.5rem;
+      text-align: center;
+      padding: 0.65rem 0.5rem;
+      vertical-align: middle;
+    }
+    .col-log .btn-log {
+      padding: 0.3rem 0.55rem;
+      font-size: 0.75rem;
+      margin: 0;
+    }
     .btn-chevron {
       padding: 0.15rem;
       margin: 0;
@@ -548,6 +559,7 @@
             <th>Code</th>
             <th>Source</th>
             <th>Status</th>
+            <th class="col-log">Log</th>
             <th class="col-toggle" aria-label="Expand"></th>
           </tr>
         </thead>
@@ -732,7 +744,7 @@
         (tr) => tr.dataset.detailFor
       );
       if (!partners.length) {
-        tb.innerHTML = '<tr><td colspan="10">No partners found</td></tr>';
+        tb.innerHTML = '<tr><td colspan="11">No partners found</td></tr>';
         return;
       }
       tb.innerHTML = partners.map((p, i) => {
@@ -750,12 +762,15 @@
           <td><code>${esc(p.code)}</code></td>
           <td>${p.source}</td>
           <td><span class="status-pill ${status}">${status}</span></td>
+          <td class="col-log">
+            <a href="/partner/log?id=${p.id}" class="btn btn-sm btn-secondary btn-log">Log</a>
+          </td>
           <td class="col-toggle">
             <button type="button" class="btn-chevron" data-toggle="${p.id}" aria-expanded="false" aria-label="Show actions for ${esc(p.name)}">${CHEVRON_DOWN_SVG}</button>
           </td>
         </tr>
         <tr class="partner-detail hidden" data-detail-for="${p.id}">
-          <td colspan="10">
+          <td colspan="11">
             <div class="accordion-panel">
               <div class="accordion-note">
                 <label for="note-${p.id}">Note</label>
