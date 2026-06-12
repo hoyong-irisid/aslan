@@ -223,7 +223,13 @@ def _handle_partner_gate(
     # A valid code anywhere in the message authenticates (or re-authenticates).
     code = extract_valid_code(message)
     if code is not None:
-        token = issue_partner_token()
+        token = issue_partner_token(code=code)
+        try:
+            from app.partner_db import touch_partner_activity_by_code
+
+            touch_partner_activity_by_code(code)
+        except Exception:
+            pass
         return ChatResult(
             reply=_partner_greeting_text(lang),
             partner_authenticated=True,
@@ -278,6 +284,16 @@ def handle_chat(
         return content_gate
 
     is_partner = is_partner_session(partner_token)
+    if is_partner:
+        try:
+            from app.partner import partner_code_for_session
+            from app.partner_db import touch_partner_activity_by_code
+
+            session_code = partner_code_for_session(partner_token)
+            if session_code:
+                touch_partner_activity_by_code(session_code)
+        except Exception:
+            pass
     partner_meta_token = partner_token if is_partner else None
     normalized_history: list[dict[str, str]] = []
     for row in chat_history or []:

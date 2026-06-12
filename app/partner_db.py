@@ -8,7 +8,7 @@ import secrets
 import sqlite3
 import string
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +92,8 @@ def init_db() -> None:
             con.execute("ALTER TABLE partners ADD COLUMN country TEXT")
         if "note" not in cols:
             con.execute("ALTER TABLE partners ADD COLUMN note TEXT")
+        if "last_activity_at" not in cols:
+            con.execute("ALTER TABLE partners ADD COLUMN last_activity_at TEXT")
 
 
 def get_partner_setting(key: str, default: str = "") -> str:
@@ -163,6 +165,40 @@ def count_all_partners() -> int:
     return int(row["n"]) if row else 0
 
 
+def touch_partner_activity_by_code(code: str) -> None:
+    c = (code or "").strip().upper()
+    if not c:
+        return
+    now = _utc_now()
+    with _conn() as con:
+        con.execute(
+            "UPDATE partners SET last_activity_at = ?, updated_at = ? WHERE code = ?",
+            (now, now, c),
+        )
+
+
+def deactivate_inactive_partners(threshold_days: int) -> int:
+    """Set active partners to inactive when last activity exceeds threshold_days."""
+    days = max(0, int(threshold_days))
+    if days <= 0:
+        return 0
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_iso = cutoff.replace(microsecond=0).isoformat()
+    now = _utc_now()
+    active_sql = _is_active_sql()
+    with _conn() as con:
+        cur = con.execute(
+            f"""
+            UPDATE partners
+            SET active = 0, updated_at = ?
+            WHERE {active_sql}
+              AND COALESCE(last_activity_at, verified_at, created_at) < ?
+            """,
+            (now, cutoff_iso),
+        )
+        return int(cur.rowcount or 0)
+
+
 def _normalize_active(value: object) -> bool:
     if value is None:
         return False
@@ -194,6 +230,7 @@ def row_to_partner(row: sqlite3.Row) -> dict[str, Any]:
         "country_iso": row["country_iso"],
         "country": row["country"] if "country" in row.keys() else None,
         "note": row["note"] if "note" in row.keys() else None,
+        "last_activity_at": row["last_activity_at"] if "last_activity_at" in row.keys() else None,
         "code": row["code"],
         "active": _normalize_active(row["active"]),
         "source": row["source"],

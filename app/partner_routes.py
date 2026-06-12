@@ -20,6 +20,7 @@ from app.countries import (
     region_key_for_country_iso,
     resolve_country_name,
 )
+from app.partner_activity import get_inactivity_days, save_inactivity_days
 from app.partner_domains import (
     domains_to_text,
     get_signup_domain_rules,
@@ -32,6 +33,7 @@ from app.partner_db import (
     admin_stats,
     consume_otp,
     create_otp_challenge,
+    deactivate_inactive_partners,
     deactivate_partner,
     delete_partner,
     get_partner,
@@ -77,6 +79,10 @@ class AdminDashboardRequest(BaseModel):
 class AdminDomainSettingsUpdate(BaseModel):
     allowed_domains_text: str = ""
     blocked_domains_text: str = ""
+
+
+class AdminActivityTimingUpdate(BaseModel):
+    inactivity_days: int = Field(default=90, ge=1, le=3650)
 
 
 class AdminPartnerUpdate(BaseModel):
@@ -297,6 +303,7 @@ def admin_dashboard(
     settings = get_settings()
     _require_admin(x_partner_admin_key, settings)
     req = body or AdminDashboardRequest()
+    deactivate_inactive_partners(get_inactivity_days())
     return admin_dashboard_data(include_inactive=req.include_inactive)
 
 
@@ -543,3 +550,24 @@ def admin_save_domain_settings(
         "allowed_domains_text": domains_to_text(saved["allowed_domains"]),
         "blocked_domains_text": domains_to_text(saved["blocked_domains"]),
     }
+
+
+@router.get("/admin/settings/activity-timing")
+def admin_get_activity_timing(
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    days = get_inactivity_days()
+    return {"inactivity_days": days, "unit": "days"}
+
+
+@router.post("/admin/settings/activity-timing")
+def admin_save_activity_timing(
+    body: AdminActivityTimingUpdate,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    days = save_inactivity_days(body.inactivity_days)
+    return {"status": "saved", "inactivity_days": days, "unit": "days"}

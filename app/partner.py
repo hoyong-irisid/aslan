@@ -22,7 +22,7 @@ from config.settings import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 
-_SESSIONS: dict[str, float] = {}  # token -> unix expiry
+_SESSIONS: dict[str, tuple[float, str | None]] = {}  # token -> (expiry, partner code)
 
 _PARTNER_INTENT_RE = re.compile(
     r"(?:(?<![a-z])partner(?![a-z])|"              # partner
@@ -96,24 +96,37 @@ def extract_valid_code(message: str, settings: Settings | None = None) -> str | 
     return None
 
 
-def issue_partner_token(settings: Settings | None = None) -> str:
+def _session_entry(token: str | None) -> tuple[float, str | None] | None:
+    if not token:
+        return None
+    entry = _SESSIONS.get(token)
+    if not entry:
+        return None
+    exp, code = entry
+    if exp < time.time():
+        _SESSIONS.pop(token, None)
+        return None
+    return entry
+
+
+def issue_partner_token(settings: Settings | None = None, *, code: str | None = None) -> str:
     s = settings or get_settings()
     token = secrets.token_urlsafe(24)
     ttl = max(1, int(s.partner_session_ttl_minutes)) * 60
-    _SESSIONS[token] = time.time() + ttl
+    normalized_code = (code or "").strip().upper() or None
+    _SESSIONS[token] = (time.time() + ttl, normalized_code)
     return token
 
 
 def is_partner_session(token: str | None) -> bool:
-    if not token:
-        return False
-    exp = _SESSIONS.get(token)
-    if not exp:
-        return False
-    if exp < time.time():
-        _SESSIONS.pop(token, None)
-        return False
-    return True
+    return _session_entry(token) is not None
+
+
+def partner_code_for_session(token: str | None) -> str | None:
+    entry = _session_entry(token)
+    if not entry:
+        return None
+    return entry[1]
 
 
 def revoke_partner_token(token: str | None) -> None:

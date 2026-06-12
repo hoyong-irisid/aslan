@@ -175,6 +175,29 @@
       outline-offset: 0;
       border-color: var(--iris-accent);
     }
+    .field input[type="number"] {
+      width: 100%;
+      max-width: 8rem;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      line-height: 1.45;
+    }
+    .field input[type="number"]:focus {
+      outline: 2px solid var(--iris-accent);
+      outline-offset: 0;
+      border-color: var(--iris-accent);
+    }
+    .input-with-unit {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .field-unit {
+      font-size: 0.875rem;
+      color: var(--iris-muted);
+    }
     .hint {
       margin: 0.35rem 0 0;
       font-size: 0.78rem;
@@ -220,7 +243,7 @@
 
     <div id="auth-gate" class="auth-gate">
       <div class="auth-gate-card">
-        <p>Enter your admin API key to manage partner signup domains.</p>
+        <p>Enter your admin API key to manage partner settings.</p>
         <div class="auth-gate-form">
           <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
           <button type="button" class="btn" id="btn-unlock">Unlock</button>
@@ -239,11 +262,12 @@
             Back to list
           </a>
           <h2>Settings</h2>
-          <a href="#domains" class="settings-nav-item is-active">Domains</a>
+          <a href="#domains" class="settings-nav-item is-active" data-settings-tab="domains">Domains</a>
+          <a href="#activity-timing" class="settings-nav-item" data-settings-tab="activity-timing">Activity timing</a>
         </aside>
         <div class="settings-content">
           <h2 class="settings-page-title">Settings</h2>
-          <section class="settings-panel" id="domains">
+          <section class="settings-panel" id="domains" data-settings-panel="domains">
           <h2>Domains</h2>
           <form id="form-domains">
             <div class="field">
@@ -255,9 +279,23 @@
               <textarea id="allowed-domains" placeholder="@xxx.com"></textarea>
               <p class="hint">Enter one domain per line (e.g. @company.com or company.com). Only emails matching these domains may register.</p>
             </div>
-            <button type="submit" class="btn" id="btn-save">Save</button>
+            <button type="submit" class="btn" id="btn-save-domains">Save</button>
           </form>
         </section>
+          <section class="settings-panel hidden" id="activity-timing" data-settings-panel="activity-timing">
+            <h2>Activity timing</h2>
+            <form id="form-activity-timing">
+              <div class="field">
+                <label for="inactivity-days">Inactivity threshold</label>
+                <div class="input-with-unit">
+                  <input type="number" id="inactivity-days" min="1" max="3650" step="1" value="90" required />
+                  <span class="field-unit">days</span>
+                </div>
+                <p class="hint">Partners with no activity for this many days are automatically set to inactive.</p>
+              </div>
+              <button type="submit" class="btn" id="btn-save-activity">Save</button>
+            </form>
+          </section>
         </div>
       </div>
     </div>
@@ -299,17 +337,55 @@
       document.getElementById("allowed-domains").value = data.allowed_domains_text || "";
     }
 
+    function applyActivityFields(data) {
+      document.getElementById("inactivity-days").value = data.inactivity_days ?? 90;
+    }
+
     async function loadDomains() {
       const data = await api("/api/partner/admin/settings/domains?t=" + Date.now());
       applyDomainFields(data);
       return data;
     }
 
+    async function loadActivityTiming() {
+      const data = await api("/api/partner/admin/settings/activity-timing?t=" + Date.now());
+      applyActivityFields(data);
+      return data;
+    }
+
+    async function loadSettings() {
+      await Promise.all([loadDomains(), loadActivityTiming()]);
+    }
+
+    function showSettingsTab(tabId) {
+      document.querySelectorAll("[data-settings-tab]").forEach((el) => {
+        el.classList.toggle("is-active", el.dataset.settingsTab === tabId);
+      });
+      document.querySelectorAll("[data-settings-panel]").forEach((el) => {
+        el.classList.toggle("hidden", el.dataset.settingsPanel !== tabId);
+      });
+      if (location.hash !== "#" + tabId) {
+        history.replaceState(null, "", "#" + tabId);
+      }
+    }
+
+    document.querySelectorAll("[data-settings-tab]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        showSettingsTab(el.dataset.settingsTab);
+      });
+    });
+
+    const initialTab = (location.hash || "#domains").replace("#", "");
+    if (document.querySelector(`[data-settings-panel="${initialTab}"]`)) {
+      showSettingsTab(initialTab);
+    }
+
     document.getElementById("btn-unlock").addEventListener("click", async () => {
       adminKey = document.getElementById("admin-key").value.trim();
       if (!adminKey) return;
       try {
-        await loadDomains();
+        await loadSettings();
         sessionStorage.setItem(KEY_STORAGE, adminKey);
         document.getElementById("auth-gate").classList.add("hidden");
         document.getElementById("app").classList.remove("hidden");
@@ -327,13 +403,13 @@
       if (!adminKey) return;
       const app = document.getElementById("app");
       if (app && !app.classList.contains("hidden")) {
-        loadDomains().catch((err) => banner(err.message || "Could not reload domains", true));
+        loadSettings().catch((err) => banner(err.message || "Could not reload settings", true));
       }
     });
 
     document.getElementById("form-domains").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const btn = document.getElementById("btn-save");
+      const btn = document.getElementById("btn-save-domains");
       btn.disabled = true;
       try {
         const data = await api("/api/partner/admin/settings/domains", {
@@ -345,6 +421,25 @@
         });
         applyDomainFields(data);
         banner("Domain settings saved", false);
+      } catch (err) {
+        banner(err.message || "Save failed", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("form-activity-timing").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-save-activity");
+      btn.disabled = true;
+      try {
+        const days = parseInt(document.getElementById("inactivity-days").value, 10);
+        const data = await api("/api/partner/admin/settings/activity-timing", {
+          method: "POST",
+          body: JSON.stringify({ inactivity_days: days }),
+        });
+        applyActivityFields(data);
+        banner("Activity timing saved", false);
       } catch (err) {
         banner(err.message || "Save failed", true);
       } finally {
