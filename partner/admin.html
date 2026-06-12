@@ -89,12 +89,24 @@
     }
     .portal-tab:hover { background: var(--iris-surface); }
     .portal-tab-icon {
-      padding: 0.45rem 0.55rem;
+      padding: 0.4rem;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      min-width: 2.125rem;
+      min-height: 2.125rem;
+      box-sizing: border-box;
+    }
+    .portal-tab-icon:hover {
+      background: var(--iris-surface);
+      color: var(--iris-dark);
+      border: none;
     }
     .portal-tab-icon svg {
-      width: 1.1rem;
-      height: 1.1rem;
+      width: 1.125rem;
+      height: 1.125rem;
       display: block;
+      flex-shrink: 0;
     }
     .portal-tab.is-active {
       background: var(--iris-slate);
@@ -160,7 +172,26 @@
       gap: 0.5rem;
       margin-bottom: 1rem;
       align-items: center;
+      justify-content: flex-end;
     }
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-icon-only {
+      padding: 0.45rem;
+      min-width: 2.125rem;
+      min-height: 2.125rem;
+      color: #64748b;
+    }
+    .btn-icon-only svg {
+      width: 1.125rem;
+      height: 1.125rem;
+      display: block;
+      flex-shrink: 0;
+    }
+    .btn-icon-only:hover { color: var(--iris-dark); }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -517,8 +548,14 @@
     <div class="stats" id="stats"></div>
 
     <div class="toolbar">
-      <button type="button" class="btn btn-primary" id="btn-add">+ Add partner</button>
-      <button type="button" class="btn btn-secondary" id="btn-refresh">Refresh</button>
+      <div class="toolbar-actions">
+        <button type="button" class="btn btn-secondary btn-icon-only" id="btn-refresh" title="Refresh" aria-label="Refresh">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-2.048a9 9 0 0117.853-4.288M2.985 4.356v2.048a9 9 0 0117.853 4.288" />
+          </svg>
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-add">+ Add partner</button>
+      </div>
     </div>
 
     <div class="table-wrap">
