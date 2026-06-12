@@ -539,7 +539,7 @@
       <table>
         <thead>
           <tr>
-            <th>ID</th>
+            <th>NO</th>
             <th>Country</th>
             <th>Company</th>
             <th>Name</th>
@@ -735,13 +735,13 @@
         tb.innerHTML = '<tr><td colspan="10">No partners found</td></tr>';
         return;
       }
-      tb.innerHTML = partners.map((p) => {
+      tb.innerHTML = partners.map((p, i) => {
         const active = partnerIsActive(p);
         const status = active ? "active" : "inactive";
         const noteVal = p.note || "";
         return `
         <tr class="partner-row" data-id="${p.id}">
-          <td>${p.id}</td>
+          <td>${i + 1}</td>
           <td>${esc(partnerCountry(p))}</td>
           <td>${esc(p.company)}</td>
           <td>${esc(p.name)}</td>
