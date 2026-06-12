@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <link rel="icon" type="image/png" href="/partner/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>IRIS ID — Partner Settings</title>
+  <style>
+    :root {
+      --iris-slate: #475569;
+      --iris-dark: #1e293b;
+      --iris-accent: #0ea5e9;
+      --iris-bg: #ffffff;
+      --iris-border: #e2e8f0;
+      --iris-muted: #64748b;
+      --iris-surface: #f8fafc;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+    * { box-sizing: border-box; }
+    body, input, textarea, button {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      margin: 0;
+      background: var(--iris-bg);
+      color: var(--iris-dark);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .page-shell { max-width: 960px; margin: 0 auto; padding: 1rem 1.25rem 1.25rem; }
+    .portal-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--iris-border);
+    }
+    .portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .portal-brand img { width: 36px; height: 36px; object-fit: contain; }
+    .portal-brand h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+    .portal-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+    .portal-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--iris-border);
+      background: #fff;
+      color: var(--iris-dark);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .portal-tab:hover { background: var(--iris-surface); }
+    .portal-tab-icon { padding: 0.45rem 0.55rem; }
+    .portal-tab-icon svg { width: 1.1rem; height: 1.1rem; display: block; }
+    .portal-tab.is-active {
+      background: var(--iris-slate);
+      color: #fff;
+      border-color: var(--iris-slate);
+    }
+    .auth-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 45vh;
+      padding: 2rem 0 3rem;
+    }
+    .auth-gate-card { width: 100%; max-width: 360px; }
+    .auth-gate-card p {
+      margin: 0 0 1rem;
+      text-align: center;
+      color: var(--iris-muted);
+      font-size: 0.9rem;
+    }
+    .auth-gate-form { display: flex; flex-direction: column; gap: 0.65rem; }
+    .auth-gate-form input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+    }
+    .auth-gate-form .btn { width: 100%; margin-top: 0.15rem; }
+    .settings-shell {
+      display: grid;
+      grid-template-columns: 200px minmax(0, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 720px) {
+      .settings-shell { grid-template-columns: 1fr; }
+    }
+    .settings-nav {
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius-lg);
+      padding: 0.75rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .settings-nav h2 {
+      margin: 0 0 0.65rem;
+      padding: 0 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--iris-muted);
+    }
+    .settings-nav-item {
+      display: block;
+      padding: 0.55rem 0.65rem;
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--iris-dark);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .settings-nav-item.is-active {
+      background: var(--iris-surface);
+      color: var(--iris-slate);
+    }
+    .settings-panel {
+      background: #fff;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .settings-panel h2 {
+      margin: 0 0 1rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .field { margin-bottom: 1rem; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+    }
+    .field textarea {
+      width: 100%;
+      min-height: 7rem;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      line-height: 1.45;
+      resize: vertical;
+    }
+    .field textarea:focus {
+      outline: 2px solid var(--iris-accent);
+      outline-offset: 0;
+      border-color: var(--iris-accent);
+    }
+    .hint {
+      margin: 0.35rem 0 0;
+      font-size: 0.78rem;
+      color: var(--iris-muted);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 0.9rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--iris-border);
+      background: var(--iris-slate);
+      color: #fff;
+      border-color: var(--iris-slate);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .btn:hover { background: var(--iris-dark); border-color: var(--iris-dark); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .msg {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .msg.err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .msg.ok { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <div class="portal-topbar">
+      <div class="portal-brand">
+        <img src="/partner/symbol-irisid-color-m.png" width="36" height="36" alt="" />
+        <h1>Partner Settings</h1>
+      </div>
+      <nav class="portal-nav" aria-label="Partner portal">
+        <a href="/partner/manage" class="portal-tab">Partners</a>
+        <a href="/partner/settings" class="portal-tab portal-tab-icon is-active" title="Settings" aria-label="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.431l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.298-2.247a1.125 1.125 0 01.26-1.431l1.003-.827c.293-.24.438-.613.431-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.005-.828a1.125 1.125 0 01-.26-1.431L4.645 8.088a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </a>
+        <a href="/partner/signup" class="portal-tab">Partner Sign Up</a>
+      </nav>
+    </div>
+
+    <div id="banner" class="msg hidden"></div>
+
+    <div id="auth-gate" class="auth-gate">
+      <div class="auth-gate-card">
+        <p>Enter your admin API key to manage partner signup domains.</p>
+        <div class="auth-gate-form">
+          <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
+          <button type="button" class="btn" id="btn-unlock">Unlock</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="app" class="hidden">
+      <div class="settings-shell">
+        <aside class="settings-nav" aria-label="Settings menu">
+          <h2>Settings</h2>
+          <a href="#domains" class="settings-nav-item is-active">Domains</a>
+        </aside>
+        <section class="settings-panel" id="domains">
+          <h2>Domains</h2>
+          <form id="form-domains">
+            <div class="field">
+              <label for="blocked-domains">허용하지 않는 도메인</label>
+              <textarea id="blocked-domains" placeholder="@xxx.com"></textarea>
+              <p class="hint">이 도메인의 이메일은 파트너 가입이 차단됩니다.</p>
+            </div>
+            <div class="field">
+              <label for="allowed-domains">파트너 도메인</label>
+              <textarea id="allowed-domains" placeholder="@xxx.com"></textarea>
+              <p class="hint">가입 가능한 파트너 이메일 도메인입니다. 한 줄에 하나씩 입력하세요.</p>
+            </div>
+            <button type="submit" class="btn" id="btn-save">Save</button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = window.location.origin;
+    const KEY_STORAGE = "aslan_partner_admin_key";
+    let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
+
+    function headers() {
+      return { "Content-Type": "application/json", "X-Partner-Admin-Key": adminKey };
+    }
+
+    function banner(text, err) {
+      const b = document.getElementById("banner");
+      b.textContent = text;
+      b.className = "msg " + (err ? "err" : "ok");
+      b.classList.remove("hidden");
+      if (!err) setTimeout(() => b.classList.add("hidden"), 4000);
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(API + path, {
+        ...opts,
+        headers: { ...headers(), ...(opts.headers || {}) },
+        cache: "no-store",
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : r.statusText;
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    async function loadDomains() {
+      const data = await api("/api/partner/admin/settings/domains");
+      document.getElementById("blocked-domains").value = data.blocked_domains_text || "";
+      document.getElementById("allowed-domains").value = data.allowed_domains_text || "";
+    }
+
+    document.getElementById("btn-unlock").addEventListener("click", async () => {
+      adminKey = document.getElementById("admin-key").value.trim();
+      if (!adminKey) return;
+      try {
+        await loadDomains();
+        sessionStorage.setItem(KEY_STORAGE, adminKey);
+        document.getElementById("auth-gate").classList.add("hidden");
+        document.getElementById("app").classList.remove("hidden");
+      } catch (e) {
+        banner(e.message || "Invalid key", true);
+      }
+    });
+
+    if (adminKey) {
+      document.getElementById("admin-key").value = adminKey;
+      document.getElementById("btn-unlock").click();
+    }
+
+    document.getElementById("form-domains").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-save");
+      btn.disabled = true;
+      try {
+        await api("/api/partner/admin/settings/domains", {
+          method: "POST",
+          body: JSON.stringify({
+            blocked_domains_text: document.getElementById("blocked-domains").value,
+            allowed_domains_text: document.getElementById("allowed-domains").value,
+          }),
+        });
+        banner("Domain settings saved", false);
+      } catch (err) {
+        banner(err.message || "Save failed", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

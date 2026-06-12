@@ -9,6 +9,8 @@ echo "=== Disk files ==="
 DISK_VER=$(grep -m1 '_PARTNER_UI_VERSION' app/main.py | sed 's/.*"\([^"]*\)".*/\1/')
 echo "  main.py partner_ui_version: ${DISK_VER}"
 grep -q "partner-detail" partner/admin.html && grep -q "btn-chevron" partner/admin.html && echo "  admin.html accordion: OK" || { echo "  admin.html accordion: MISSING — git pull origin main"; exit 1; }
+grep -q "partner/settings" partner/admin.html && echo "  admin.html settings link: OK" || { echo "  admin.html settings link: MISSING"; exit 1; }
+test -f partner/settings.html && grep -q "Blocked domains" partner/settings.html && echo "  settings.html: OK" || { echo "  settings.html: MISSING"; exit 1; }
 grep -q "portal-topbar" partner/admin.html && echo "  admin.html layout: OK (portal-topbar)" || { echo "  admin.html layout: OLD — re-upload zip and unzip in ~/apps/aslan"; exit 1; }
 grep -q "auth-gate" partner/admin.html && echo "  admin.html auth-gate: OK" || { echo "  admin.html auth-gate: MISSING"; exit 1; }
 grep -q "symbol-irisid-color-m.png" partner/admin.html && echo "  admin.html symbol: OK" || { echo "  admin.html symbol: MISSING"; exit 1; }
