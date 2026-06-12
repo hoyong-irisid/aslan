@@ -440,6 +440,15 @@ def deactivate_partner(partner_id: int) -> dict[str, Any]:
     return out
 
 
+def delete_partner(partner_id: int) -> dict[str, Any]:
+    out = get_partner(partner_id)
+    if out is None:
+        raise ValueError("Partner not found")
+    with _conn() as con:
+        con.execute("DELETE FROM partners WHERE id = ?", (partner_id,))
+    return out
+
+
 def regenerate_code(partner_id: int) -> dict[str, Any]:
     code = generate_partner_code()
     with _conn() as con:

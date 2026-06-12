@@ -108,7 +108,7 @@ class Settings(BaseSettings):
 
     # Optional: chat transcript email — Resend (HTTPS API, works from localhost) or SMTP.
     resend_api_key: str | None = None
-    resend_from: str | None = None  # e.g. "IRIS ID <onboarding@resend.dev>" or your verified domain
+    resend_from: str | None = None  # e.g. "Iris ID <noreply@irisid.com>"
 
     smtp_host: str | None = None
     smtp_port: int = 587

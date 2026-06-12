@@ -3,37 +3,118 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IRIS ID — Partner Registration</title>
+  <link rel="icon" type="image/png" href="/partner/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>IRIS ID — Partner Signup</title>
   <style>
     :root {
       --iris-slate: #475569;
       --iris-dark: #1e293b;
       --iris-accent: #0ea5e9;
-      --iris-bg: #f8fafc;
+      --iris-bg: #ffffff;
       --iris-border: #e2e8f0;
       --iris-success: #059669;
       --iris-error: #dc2626;
     }
     * { box-sizing: border-box; }
+    body, input, select, button {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: var(--iris-bg);
       color: var(--iris-dark);
       line-height: 1.5;
+      font-size: 14px;
     }
-    header {
+    .page-shell {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 1rem 1rem 0.5rem;
+    }
+    .portal-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--iris-border);
+    }
+    .portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .portal-brand img {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      object-fit: contain;
+    }
+    .portal-brand h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .portal-brand p {
+      margin: 0.2rem 0 0;
+      font-size: 0.8rem;
+      color: #64748b;
+      font-weight: 400;
+    }
+    .portal-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+    .portal-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--iris-border);
+      background: #fff;
+      color: var(--iris-dark);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .portal-tab:hover { background: #f8fafc; }
+    .portal-tab.is-active {
       background: var(--iris-slate);
       color: #fff;
-      padding: 1.25rem 1.5rem;
+      border-color: var(--iris-slate);
+      pointer-events: none;
     }
-    header h1 { margin: 0; font-size: 1.35rem; font-weight: 600; }
-    header p { margin: 0.35rem 0 0; opacity: 0.9; font-size: 0.95rem; }
-    main {
-      max-width: 520px;
-      margin: 2rem auto;
-      padding: 0 1rem 3rem;
+    .select-wrap {
+      position: relative;
     }
+    .select-wrap select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 2.5rem;
+    }
+    .select-chevron {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1.25rem;
+      height: 1.25rem;
+      color: #64748b;
+      pointer-events: none;
+    }
+    main { margin-top: 0; }
     .card {
       background: #fff;
       border: 1px solid var(--iris-border);
@@ -53,6 +134,11 @@
     }
     .step.active { background: var(--iris-slate); color: #fff; }
     .step.done { background: #dbeafe; color: #1d4ed8; }
+    .step.done.clickable {
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .step.done.clickable:hover { background: #bfdbfe; color: #1e40af; }
     label {
       display: block;
       font-size: 0.85rem;
@@ -71,12 +157,46 @@
       border-color: var(--iris-accent);
     }
     .hint { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+    .verify-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+    }
+    .btn-link {
+      padding: 0;
+      margin: 0;
+      width: auto;
+      background: none;
+      border: none;
+      color: var(--iris-accent);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .btn-link:hover { color: #0284c7; }
+    .btn-link:disabled {
+      color: #94a3b8;
+      cursor: not-allowed;
+      text-decoration: none;
+    }
+    #otp-timer {
+      font-variant-numeric: tabular-nums;
+      color: #64748b;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    #otp-timer.expired { color: var(--iris-error); }
     button {
       margin-top: 1.25rem;
       width: 100%;
       padding: 0.75rem;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 00;
       border: none;
       border-radius: 6px;
       cursor: pointer;
@@ -108,17 +228,33 @@
       text-align: center;
       font-size: 0.8rem;
       color: #94a3b8;
-      margin-top: 2rem;
+      margin: 0.75rem auto 1rem;
+      max-width: 520px;
+      padding: 0 1rem;
     }
     a { color: var(--iris-accent); }
   </style>
 </head>
 <body>
-  <header>
-    <h1>IRIS ID Partner Program</h1>
-    <p>Register for partner-only technical documentation access</p>
-  </header>
-  <main>
+  <main class="page-shell">
+    <div class="portal-topbar">
+      <div class="portal-brand">
+        <img
+          src="/partner/symbol-irisid-color-m.png"
+          width="36"
+          height="36"
+          alt=""
+        />
+        <div>
+          <h1>Iris ID Partner Signup</h1>
+          <p>Register for partner-only chatbot support</p>
+        </div>
+      </div>
+      <nav class="portal-nav" aria-label="Partner portal">
+        <a href="/partner/manage" class="portal-tab">Admin</a>
+      </nav>
+    </div>
+
     <div class="steps">
       <div class="step active" id="step1">1. Details</div>
       <div class="step" id="step2">2. Verify email</div>
@@ -140,11 +276,16 @@
         <input type="tel" id="phone" name="phone" autocomplete="tel" />
 
         <label for="region_key">Region *</label>
-        <select id="region_key" name="region_key" required>
-          <option value="">Loading regions…</option>
-        </select>
+        <div class="select-wrap">
+          <select id="region_key" name="region_key" required>
+            <option value="">Loading regions…</option>
+          </select>
+          <svg class="select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </div>
 
-        <label for="country_iso">Country (optional, ISO code e.g. AE, KR)</label>
+        <label for="country_iso">Country</label>
         <input type="text" id="country_iso" name="country_iso" maxlength="2" pattern="[A-Za-z]{0,2}" />
 
         <button type="submit" id="btn-signup">Send verification code</button>
@@ -157,20 +298,23 @@
       <form id="form-verify">
         <label for="otp">Verification code *</label>
         <input type="text" id="otp" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" />
+        <div class="verify-meta">
+          <button type="button" class="btn-link" id="btn-resend-inline" disabled>Resend code</button>
+          <span id="otp-timer">10:00 remaining</span>
+        </div>
         <button type="submit" id="btn-verify">Verify &amp; get partner code</button>
       </form>
-      <p class="hint"><a href="#" id="link-back">← Edit registration details</a></p>
       <div id="msg-verify" class="msg hidden"></div>
     </div>
 
     <div class="card hidden" id="panel-done">
       <div class="msg ok">Registration complete. Your partner access code has been emailed to you.</div>
-      <p>Use this code in the <strong>IRIS ID Assistant</strong> chat (Partner button) to unlock partner manuals.</p>
+      <p>Use this code in the <strong>Iris ID Assistant Chat</strong> (Partner button) to unlock partner questionnaires.</p>
       <div class="code-box hidden" id="code-display"></div>
-      <p class="hint">Keep your code confidential. Need help? Contact your regional IRIS ID representative.</p>
+      <p class="hint">Keep your code confidential. Need help? Contact your regional Iris ID representative.</p>
     </div>
   </main>
-  <footer>© IRIS ID — Partner portal</footer>
+  <footer>© Iris ID - Partner portal</footer>
 
   <script>
     const API = window.location.origin;
@@ -184,10 +328,23 @@
     function setStep(n) {
       ["step1", "step2", "step3"].forEach((id, i) => {
         const el = document.getElementById(id);
-        el.classList.remove("active", "done");
+        el.classList.remove("active", "done", "clickable");
         if (i + 1 < n) el.classList.add("done");
         else if (i + 1 === n) el.classList.add("active");
       });
+      // Step 1 is clickable on verify step to edit registration details.
+      if (n === 2) document.getElementById("step1").classList.add("clickable");
+    }
+
+    function goBackToDetails() {
+      stopOtpTimer();
+      document.getElementById("panel-verify").classList.add("hidden");
+      document.getElementById("panel-signup").classList.remove("hidden");
+      document.getElementById("msg-verify").classList.add("hidden");
+      document.getElementById("otp").value = "";
+      document.getElementById("otp").disabled = false;
+      setVerifyMode("verify");
+      setStep(1);
     }
 
     async function loadRegions() {
@@ -204,11 +361,117 @@
         }
         if (data.default_region) sel.value = data.default_region;
       } catch (e) {
-        sel.innerHTML = '<option value="global">Global / Other</option>';
+        const fallback = [
+          ["north_america", "North America"],
+          ["south_america", "South America"],
+          ["east_asia", "East Asia"],
+          ["middle_east", "Middle East"],
+          ["europe", "Europe"],
+          ["africa", "Africa"],
+        ];
+        sel.innerHTML = fallback.map(([k, label]) => `<option value="${k}">${label}</option>`).join("");
       }
     }
 
     let pendingEmail = "";
+    let pendingSignupBody = null;
+    let otpExpiresAt = 0;
+    let otpTimerId = null;
+
+    function stopOtpTimer() {
+      if (otpTimerId) {
+        clearInterval(otpTimerId);
+        otpTimerId = null;
+      }
+    }
+
+    function parseExpiresAt(data) {
+      if (data && data.expires_at) {
+        const t = Date.parse(data.expires_at);
+        if (!Number.isNaN(t)) return t;
+      }
+      const mins = (data && data.ttl_minutes) || 10;
+      return Date.now() + mins * 60 * 1000;
+    }
+
+    function formatRemaining(ms) {
+      const totalSec = Math.ceil(ms / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function setVerifyMode(mode) {
+      const btn = document.getElementById("btn-verify");
+      const otp = document.getElementById("otp");
+      const resendInline = document.getElementById("btn-resend-inline");
+      if (mode === "resend") {
+        btn.type = "button";
+        btn.textContent = "Resend code";
+        btn.dataset.mode = "resend";
+        otp.required = false;
+        otp.disabled = true;
+        resendInline.disabled = true;
+      } else {
+        btn.type = "submit";
+        btn.textContent = "Verify & get partner code";
+        btn.dataset.mode = "verify";
+        otp.required = true;
+        otp.disabled = false;
+        resendInline.disabled = true;
+      }
+    }
+
+    function updateOtpTimerUi() {
+      const timerEl = document.getElementById("otp-timer");
+      const remaining = otpExpiresAt - Date.now();
+      if (remaining > 0) {
+        timerEl.textContent = `${formatRemaining(remaining)} remaining`;
+        timerEl.classList.remove("expired");
+        setVerifyMode("verify");
+        return;
+      }
+      timerEl.textContent = "Code expired";
+      timerEl.classList.add("expired");
+      setVerifyMode("resend");
+      stopOtpTimer();
+    }
+
+    function startOtpTimer(expiresAtMs) {
+      stopOtpTimer();
+      otpExpiresAt = expiresAtMs;
+      updateOtpTimerUi();
+      otpTimerId = setInterval(updateOtpTimerUi, 1000);
+    }
+
+    async function sendVerificationCode(body) {
+      const r = await fetch(API + "/api/partner/signup/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      return data;
+    }
+
+    async function resendVerificationCode() {
+      if (!pendingSignupBody) return;
+      const btn = document.getElementById("btn-verify");
+      const msg = document.getElementById("msg-verify");
+      msg.classList.add("hidden");
+      btn.disabled = true;
+      try {
+        const data = await sendVerificationCode(pendingSignupBody);
+        document.getElementById("otp").value = "";
+        startOtpTimer(parseExpiresAt(data));
+        showMsg(msg, "A new verification code was sent.", true);
+      } catch (err) {
+        showMsg(msg, err.message || "Failed to resend code", false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
     document.getElementById("form-signup").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -225,17 +488,15 @@
         country_iso: document.getElementById("country_iso").value.trim().toUpperCase() || null,
       };
       try {
-        const r = await fetch(API + "/api/partner/signup/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.detail || r.statusText);
+        const data = await sendVerificationCode(body);
+        pendingSignupBody = body;
         pendingEmail = body.email;
         document.getElementById("verify-email").textContent = body.email;
         document.getElementById("panel-signup").classList.add("hidden");
         document.getElementById("panel-verify").classList.remove("hidden");
+        document.getElementById("otp").value = "";
+        document.getElementById("msg-verify").classList.add("hidden");
+        startOtpTimer(parseExpiresAt(data));
         setStep(2);
       } catch (err) {
         showMsg(msg, err.message || "Request failed", false);
@@ -247,6 +508,10 @@
     document.getElementById("form-verify").addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = document.getElementById("btn-verify");
+      if (btn.dataset.mode === "resend") {
+        await resendVerificationCode();
+        return;
+      }
       const msg = document.getElementById("msg-verify");
       msg.classList.add("hidden");
       btn.disabled = true;
@@ -258,6 +523,7 @@
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.detail || r.statusText);
+        stopOtpTimer();
         document.getElementById("panel-verify").classList.add("hidden");
         document.getElementById("panel-done").classList.remove("hidden");
         setStep(3);
@@ -276,11 +542,22 @@
       }
     });
 
-    document.getElementById("link-back").addEventListener("click", (e) => {
-      e.preventDefault();
-      document.getElementById("panel-verify").classList.add("hidden");
-      document.getElementById("panel-signup").classList.remove("hidden");
-      setStep(1);
+    document.getElementById("btn-verify").addEventListener("click", (e) => {
+      if (document.getElementById("btn-verify").dataset.mode === "resend") {
+        e.preventDefault();
+        resendVerificationCode();
+      }
+    });
+
+    document.getElementById("btn-resend-inline").addEventListener("click", () => {
+      if (!document.getElementById("btn-resend-inline").disabled) {
+        resendVerificationCode();
+      }
+    });
+
+    document.getElementById("step1").addEventListener("click", () => {
+      if (!document.getElementById("step1").classList.contains("clickable")) return;
+      goBackToDetails();
     });
 
     loadRegions();

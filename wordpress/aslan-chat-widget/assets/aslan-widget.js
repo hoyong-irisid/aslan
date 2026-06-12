@@ -1,607 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ASLAN — IRIS ID Chat (local)</title>
-  <style>
-    :root {
-      --iris-navy: #0f172a;
-      --iris-header-bg: #475569;
-      --iris-accent: #0ea5e9;
-      --iris-muted: #64748b;
-      --surface: #ffffff;
-      --bubble-user: #e0f2fe;
-      --bubble-bot: #f1f5f9;
-      --shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
-      --radius: 14px;
-      --fab-size: 58px;
-      --aslan-header-symbol-size: 36px;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: linear-gradient(160deg, #e2e8f0 0%, #f8fafc 45%, #e0f2fe 100%);
-      color: var(--iris-navy);
-    }
-    body.aslan-chat-open .demo-page {
-      opacity: 0.35;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
-    .demo-page {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
-    }
-    .demo-page h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
-    .demo-page p { color: var(--iris-muted); line-height: 1.6; margin: 0; }
+(function () {
+  function bootAslanWidget() {
+      if (window.__ASLAN_WIDGET_INIT) return;
+      var root = document.getElementById("aslan-widget-root");
+      if (!root) return;
 
-    /* Launcher */
-    .aslan-fab {
-      position: fixed;
-      right: 22px;
-      bottom: 22px;
-      width: var(--fab-size);
-      height: var(--fab-size);
-      border-radius: 50%;
-      border: none;
-      cursor: pointer;
-      background: linear-gradient(145deg, #67000c, var(--iris-accent));
-      color: #fff;
-      box-shadow: var(--shadow);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      line-height: 0;
-      overflow: visible;
-      z-index: 9998;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .aslan-fab:hover { transform: scale(1.05); }
-    .aslan-fab-logo {
-      display: block;
-      height: 280px;
-      width: auto;
-      max-width: 280px;
-      object-fit: contain;
-      object-position: center;
-      pointer-events: none;
-      flex: 0 0 auto;
-      transform-origin: center center;
-      transition: transform 0.45s ease;
-    }
-    .aslan-fab:hover .aslan-fab-logo { transform: rotate(90deg); }
-
-    /* Panel */
-    .aslan-panel {
-      position: fixed;
-      right: 22px;
-      bottom: calc(22px + var(--fab-size) + 14px);
-      width: min(400px, calc(100vw - 32px));
-      height: min(520px, calc(100vh - 120px));
-      max-height: calc(100vh - 120px);
-      background: var(--surface);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-      z-index: 9999;
-      opacity: 0;
-      pointer-events: none;
-      visibility: hidden;
-      transform: translateY(12px) scale(0.98);
-      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
-    }
-    .aslan-panel.open {
-      opacity: 1;
-      pointer-events: auto;
-      visibility: visible;
-      transform: translateY(0) scale(1);
-    }
-    .aslan-header {
-      padding: 14px 16px;
-      background: var(--iris-header-bg);
-      color: #f8fafc;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .aslan-header-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 0;
-    }
-    .aslan-header-symbol {
-      width: var(--aslan-header-symbol-size);
-      height: var(--aslan-header-symbol-size);
-      max-width: var(--aslan-header-symbol-size);
-      max-height: var(--aslan-header-symbol-size);
-      flex: 0 0 var(--aslan-header-symbol-size);
-      display: block;
-      object-fit: contain;
-    }
-    .aslan-header strong { font-size: 0.95rem; }
-    .aslan-header span { font-size: 0.72rem; opacity: 0.85; }
-    .aslan-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .aslan-partner-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: none;
-      background: #fff;
-      color: var(--iris-navy);
-      font-size: 0.72rem;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-      white-space: nowrap;
-    }
-    .aslan-partner-badge .picon-dot {
-      width: 12px;
-      height: 14px;
-      flex-shrink: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #111827;
-    }
-    .aslan-partner-badge .picon-dot svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    .aslan-partner-badge .picon-check {
-      width: 12px;
-      height: 14px;
-      flex-shrink: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #16a34a;
-    }
-    .aslan-partner-badge .picon-check svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    .aslan-partner-badge.verified {
-      color: #15803d;
-      cursor: default;
-    }
-    .aslan-close {
-      background: transparent;
-      border: none;
-      color: #fff;
-      cursor: pointer;
-      font-size: 1.35rem;
-      line-height: 1;
-      padding: 4px 8px;
-      border-radius: 8px;
-    }
-    .aslan-close:hover { background: rgba(255,255,255,0.12); }
-
-    .aslan-messages {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      background: #f8fafc;
-    }
-    .msg {
-      max-width: 92%;
-      padding: 10px 12px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-    .msg a {
-      color: #2563eb;
-      text-decoration: none;
-      overflow-wrap: anywhere;
-      word-break: break-all;
-    }
-    .msg a:hover { color: #1d4ed8; }
-    .msg.user {
-      align-self: flex-end;
-      background: var(--bubble-user);
-      color: var(--iris-navy);
-    }
-    .msg.bot {
-      align-self: flex-start;
-      background: var(--bubble-bot);
-      color: var(--iris-navy);
-    }
-    .msg.error { background: #fee2e2; color: #991b1b; }
-    .msg .msg-image {
-      margin-top: 8px;
-      display: block;
-      max-width: 100%;
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      cursor: zoom-in;
-    }
-    .msg .figure-options {
-      margin-top: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .msg .figure-option-btn {
-      font-size: 0.72rem;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: var(--iris-navy);
-      cursor: pointer;
-    }
-    .msg .figure-option-btn:hover { border-color: var(--iris-accent); color: #780012; }
-    .msg .choice-options {
-      margin-top: 10px;
-      border: 1px solid #dbe3ef;
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 8px;
-      display: grid;
-      gap: 6px;
-    }
-    .msg .choice-option-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-      color: var(--iris-navy);
-    }
-    .msg .choice-option-row input[type="radio"] {
-      margin: 0;
-      accent-color: #0f172a;
-    }
-    .msg .choice-option-actions {
-      margin-top: 2px;
-      display: flex;
-      justify-content: flex-end;
-    }
-    .msg .choice-option-send {
-      font-size: 0.74rem;
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      color: var(--iris-navy);
-      padding: 6px 10px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    .msg .choice-option-send:hover { border-color: var(--iris-accent); color: #0369a1; }
-    .msg.typing {
-      align-self: flex-start;
-      background: var(--bubble-bot);
-      color: var(--iris-muted);
-      min-width: 54px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 10px 12px;
-    }
-    .typing-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #64748b;
-      opacity: 0.35;
-      animation: aslan-dot-pulse 1.2s infinite ease-in-out;
-    }
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes aslan-dot-pulse {
-      0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
-      40% { transform: translateY(-2px); opacity: 0.95; }
-    }
-
-    .aslan-footer {
-      padding: 12px 14px 14px;
-      background: var(--surface);
-      border-top: 1px solid #e2e8f0;
-      flex-shrink: 0;
-    }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .chip {
-      font-size: 0.72rem;
-      padding: 5px 9px;
-      border-radius: 999px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: var(--iris-navy);
-      cursor: pointer;
-    }
-    .chip:hover { border-color: var(--iris-accent); color: #780012; }
-    .row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
-    .aslan-input {
-      flex: 1;
-      min-height: 44px;
-      max-height: 120px;
-      resize: none;
-      border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      padding: 10px 12px;
-      font: inherit;
-    }
-    .aslan-input:focus {
-      outline: 2px solid var(--iris-accent);
-      outline-offset: 0;
-      border-color: transparent;
-    }
-    .aslan-mic {
-      height: 44px;
-      width: 44px;
-      padding: 0;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      background: #fff;
-      color: var(--iris-navy);
-      cursor: pointer;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .aslan-mic:hover { border-color: var(--iris-accent); color: #0369a1; }
-    .aslan-mic svg { width: 22px; height: 22px; display: block; }
-    .aslan-mic.listening {
-      background: #fef2f2;
-      border-color: #f87171;
-      color: #b91c1c;
-      animation: aslan-mic-pulse 1.1s ease-in-out infinite;
-    }
-    .aslan-mic:disabled { opacity: 0.5; cursor: not-allowed; }
-    @keyframes aslan-mic-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.72; }
-    }
-    .aslan-send {
-      height: 44px;
-      padding: 0 16px;
-      border: none;
-      border-radius: 10px;
-      background: var(--iris-navy);
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .aslan-send:disabled { opacity: 0.55; cursor: not-allowed; }
-    .aslan-hint {
-      font-size: 0.58rem;
-      color: var(--iris-muted);
-      margin-top: 8px;
-    }
-    .aslan-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 10010;
-      padding: 20px;
-    }
-    .aslan-modal-backdrop.open { display: flex; }
-    .aslan-modal {
-      width: min(420px, calc(100vw - 40px));
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      border: 1px solid #e2e8f0;
-      padding: 16px;
-    }
-    .aslan-modal-title {
-      margin: 0;
-      font-size: 1rem;
-      color: var(--iris-navy);
-    }
-    .aslan-modal-desc {
-      margin: 8px 0 12px;
-      color: var(--iris-muted);
-      font-size: 0.86rem;
-      line-height: 1.45;
-    }
-    .aslan-modal-input {
-      width: 100%;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 10px 12px;
-      font: inherit;
-    }
-    .aslan-modal-input:focus {
-      outline: 2px solid var(--iris-accent);
-      border-color: transparent;
-    }
-    .aslan-modal-error {
-      display: none;
-      margin-top: 8px;
-      color: #b91c1c;
-      font-size: 0.8rem;
-    }
-    .aslan-modal-error.show { display: block; }
-    .aslan-modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 14px;
-    }
-    .aslan-btn {
-      border-radius: 10px;
-      padding: 8px 12px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: var(--iris-navy);
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.82rem;
-    }
-    .aslan-btn:hover { border-color: var(--iris-accent); color: #0369a1; }
-    .aslan-btn-primary {
-      border: none;
-      background: var(--iris-navy);
-      color: #fff;
-    }
-    .aslan-btn-primary:hover {
-      color: #fff;
-      background: #1e293b;
-    }
-    .aslan-toast {
-      position: fixed;
-      right: 22px;
-      bottom: calc(22px + var(--fab-size) + 24px);
-      z-index: 10020;
-      background: #0b1222;
-      color: #f8fafc;
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 0.82rem;
-      box-shadow: var(--shadow);
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(6px);
-      transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-    .aslan-toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .aslan-toast.error { background: #7f1d1d; }
-    .aslan-image-lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 10030;
-      background: rgba(2, 6, 23, 0.78);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 28px;
-    }
-    .aslan-image-lightbox.open { display: flex; }
-    .aslan-image-lightbox img {
-      max-width: min(1100px, 96vw);
-      max-height: 90vh;
-      border-radius: 10px;
-      box-shadow: 0 18px 50px rgba(2, 6, 23, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: #fff;
-      object-fit: contain;
-    }
-    .aslan-image-lightbox-close {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.72);
-      color: #fff;
-      font-size: 1.35rem;
-      line-height: 1;
-      cursor: pointer;
-    }
-    .aslan-image-lightbox-close:hover { background: rgba(15, 23, 42, 0.9); }
-  </style>
-</head>
-<body>
-  <div class="demo-page">
-    <p>
-      <img src="symbol-irisid-dark-color.png" width="72" height="72" alt="" style="display:block" />
-    </p>
-    <h1 style="margin-top:20px">Iris ID AI Chatbot</h1>
-    <p style="margin-top:10px">
-      ASLAN local demo — use the chat button (bottom-right).
-    </p>
-  </div>
-
-  <button type="button" class="aslan-fab" id="aslanFab" aria-label="Open chat">
-    <img class="aslan-fab-logo" src="symbol-irisid-white.svg" width="160" height="auto"
-    />
-  </button>
-
-  <div class="aslan-panel" id="aslanPanel" role="dialog" aria-label="Chat">
-    <div class="aslan-header">
-      <div class="aslan-header-brand">
-        <img
-          class="aslan-header-symbol"
-          src="symbol-irisid-color-light.svg" width="36" height="36" alt=""
-          style="width:36px;height:36px;max-width:36px;max-height:36px;"
-        />
-        <div>
-          <strong>Iris ID Assistant</strong><br />
-          <span>Local · ASLAN</span>
-        </div>
-      </div>
-      <div class="aslan-header-actions">
-        <button type="button" class="aslan-partner-badge" id="aslanPartnerBadge" aria-label="Partner login">
-          <span class="picon-dot" aria-hidden="true"></span><span>Partner</span>
-        </button>
-        <button type="button" class="aslan-close" id="aslanClose" aria-label="Close chat">×</button>
-      </div>
-    </div>
-    <div class="aslan-messages" id="aslanMessages"></div>
-    <div class="aslan-footer">
-      <div class="chips" id="aslanChips"></div>
-      <div class="row">
-        <textarea class="aslan-input" id="aslanInput" rows="1" placeholder="Message…"></textarea>
-        <button type="button" class="aslan-mic" id="aslanMic" aria-label="Voice input" aria-pressed="false" title="Voice input (browser)">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-          </svg>
-        </button>
-        <button type="button" class="aslan-send" id="aslanSend">Send</button>
-      </div>
-      <div class="aslan-hint">Powered by your local <code>/chat</code> API. Voice uses your browser (HTTPS or localhost). Email transcript needs Resend or SMTP in <code>.env</code>.</div>
-    </div>
-  </div>
-  <div class="aslan-toast" id="aslanToast"></div>
-  <div class="aslan-image-lightbox" id="aslanImageLightbox" aria-hidden="true">
-    <button type="button" class="aslan-image-lightbox-close" id="aslanImageLightboxClose" aria-label="Close image preview">×</button>
-    <img id="aslanImageLightboxImg" alt="Expanded chat image" />
-  </div>
-
-  <script>
-    (function () {
-      var API_BASE = ""; // same origin when served from FastAPI /widget/
+      var CFG = window.ASLAN_WIDGET || {};
+      var API_BASE = String(CFG.apiBase || "").replace(/\/$/, "");
+      var ASSETS_BASE = String(CFG.assetsBase || "").replace(/\/$/, "");
+      var TRANSCRIPT_RECIPIENT = CFG.transcriptRecipient || "hoyong.lee@irisid.com";
       var PARTNER_TOKEN_KEY = "aslan.partner_token";
-      var TRANSCRIPT_RECIPIENT = "hoyong.lee@irisid.com";
+      
       var chatHistory = [];
+      function resolveAssetUrl(u) {
+        var s = String(u || "");
+        if (!s) return s;
+        if (/^https?:\/\//i.test(s)) return s;
+        var assetMatch = s.match(/^\/partner\/asset\/([^/?#]+)(?:\?(.*))?$/);
+        if (assetMatch && CFG.useWpProxy && CFG.assetProxyUrl) {
+          var id = decodeURIComponent(assetMatch[1]);
+          var token = "";
+          var qs = assetMatch[2] || "";
+          qs.split("&").forEach(function (pair) {
+            var p = pair.split("=");
+            if (p[0] === "token" && p[1]) token = decodeURIComponent(p[1]);
+          });
+          return (
+            CFG.assetProxyUrl +
+            "&asset_id=" +
+            encodeURIComponent(id) +
+            "&token=" +
+            encodeURIComponent(token)
+          );
+        }
+        if (s.charAt(0) === "/" && API_BASE) return API_BASE + s;
+        return s;
+      }
+
 
       function getPartnerToken() {
         try { return window.sessionStorage.getItem(PARTNER_TOKEN_KEY) || null; }
@@ -614,19 +48,21 @@
         } catch (e) {}
       }
 
-      var fab = document.getElementById("aslanFab");
-      var panel = document.getElementById("aslanPanel");
-      var closeBtn = document.getElementById("aslanClose");
-      var partnerBadge = document.getElementById("aslanPartnerBadge");
-      var messagesEl = document.getElementById("aslanMessages");
-      var input = document.getElementById("aslanInput");
-      var sendBtn = document.getElementById("aslanSend");
-      var micBtn = document.getElementById("aslanMic");
-      var chipsEl = document.getElementById("aslanChips");
-      var toastEl = document.getElementById("aslanToast");
-      var imageLightbox = document.getElementById("aslanImageLightbox");
-      var imageLightboxImg = document.getElementById("aslanImageLightboxImg");
-      var imageLightboxClose = document.getElementById("aslanImageLightboxClose");
+      var fab = root.querySelector("#aslanFab");
+      if (!fab) return;
+      var panel = root.querySelector("#aslanPanel");
+      if (!panel) return;
+      var closeBtn = root.querySelector("#aslanClose");
+      var partnerBadge = root.querySelector("#aslanPartnerBadge");
+      var messagesEl = root.querySelector("#aslanMessages");
+      var input = root.querySelector("#aslanInput");
+      var sendBtn = root.querySelector("#aslanSend");
+      var micBtn = root.querySelector("#aslanMic");
+      var chipsEl = root.querySelector("#aslanChips");
+      var toastEl = root.querySelector("#aslanToast");
+      var imageLightbox = root.querySelector("#aslanImageLightbox");
+      var imageLightboxImg = root.querySelector("#aslanImageLightboxImg");
+      var imageLightboxClose = root.querySelector("#aslanImageLightboxClose");
       var typingEl = null;
       var toastTimer = null;
       var closingPanel = false;
@@ -736,11 +172,11 @@
         imageUrls.forEach(function (u) {
           var img = document.createElement("img");
           img.className = "msg-image";
-          img.src = u;
+          img.src = resolveAssetUrl(u);
           img.alt = "Partner figure";
           img.loading = "lazy";
           img.addEventListener("click", function () {
-            openImageLightbox(u, img.alt || "Expanded chat image");
+            openImageLightbox(resolveAssetUrl(u), img.alt || "Expanded chat image");
           });
           div.appendChild(img);
         });
@@ -761,7 +197,7 @@
               appendMessage("user", "Show image: " + opt.title);
               appendMessage(
                 "bot",
-                "Figure: " + opt.title + "\nIMAGE_URL: " + "/partner/asset/" + encodeURIComponent(opt.id) + "?token=" + encodeURIComponent(tok)
+                "Figure: " + opt.title + "\nIMAGE_URL: /partner/asset/" + encodeURIComponent(opt.id) + "?token=" + encodeURIComponent(tok)
               );
             });
             wrap.appendChild(b);
@@ -807,7 +243,7 @@
 
       function openImageLightbox(src, alt) {
         if (!imageLightbox || !imageLightboxImg) return;
-        imageLightboxImg.src = String(src || "");
+        imageLightboxImg.src = resolveAssetUrl(src);
         imageLightboxImg.alt = String(alt || "Expanded chat image");
         imageLightbox.classList.add("open");
         imageLightbox.setAttribute("aria-hidden", "false");
@@ -1060,7 +496,9 @@
         }
       }
 
-      fab.addEventListener("click", function () {
+      fab.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         if (closingPanel) return;
         if (panel.classList.contains("open")) {
           closePanelWithOptionalEmail();
@@ -1148,10 +586,23 @@
       }
 
       // Partner auth is per-chat/session only. Never restore from previous page lifetime.
+      window.__ASLAN_WIDGET_INIT = true;
       setPartnerToken(null);
       renderChips();
       syncPartnerBadge();
-    })();
-  </script>
-</body>
-</html>
+  }
+
+  function scheduleBoot() {
+    bootAslanWidget();
+    if (!window.__ASLAN_WIDGET_INIT) {
+      window.setTimeout(bootAslanWidget, 250);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleBoot);
+  } else {
+    scheduleBoot();
+  }
+  window.addEventListener("load", bootAslanWidget);
+})();

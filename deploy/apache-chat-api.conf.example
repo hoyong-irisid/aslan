@@ -13,10 +13,13 @@
     ProxyPass / http://127.0.0.1:8010/ nocanon
     ProxyPassReverse / http://127.0.0.1:8010/
 
-    # Do not cache partner portal HTML/API (InMotion often caches GET otherwise).
-    <LocationMatch "^/(partner/|api/partner/)">
-        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
-        Header set Pragma "no-cache"
+    # Do not cache partner portal HTML/API (InMotion/LiteSpeed often caches GET).
+    <LocationMatch "^/(partner|api/partner)">
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+        Header always unset ETag
+        Header always unset Last-Modified
     </LocationMatch>
 
     # WebSocket (if needed later)

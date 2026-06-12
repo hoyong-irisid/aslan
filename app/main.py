@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import os
 import re
 from datetime import datetime, timezone
@@ -8,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -15,11 +17,11 @@ from pydantic import BaseModel, Field
 from app.email_transcript import send_chat_transcript
 from app.handlers import handle_chat
 from app.partner import is_partner_session, partner_enabled
-from app.partner_assets import resolve_asset_file
+from app.partner_assets import load_figure_assets, resolve_asset_file
 from app.partner_db import init_db
 from app.partner_routes import router as partner_registry_router
 from app.web_search import web_search_configured
-from config.settings import get_settings
+from config.settings import get_settings, resolve_partner_docs_path
 
 
 def _redact_secrets(text: str) -> str:
@@ -101,48 +103,102 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v4"
+_PARTNER_UI_VERSION = "2026-06-11-v19"
 _PARTNER_ADMIN_PATH = "/partner/manage"
+_PARTNER_REGISTER_PATH = "/partner/signup"
+# Canonical HTML pages — middleware redirects to ?v=<version> so Apache/LiteSpeed
+# cannot serve a stale cached copy after deploy (hard refresh often still hits cache).
+_PARTNER_HTML_PATHS = frozenset(
+    {"/partner/manage", "/partner/signup", "/partner", "/partner/"}
+)
 _NO_CACHE_HTML = {
-    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, private",
     "Pragma": "no-cache",
     "Expires": "0",
+    "CDN-Cache-Control": "no-store",
+    "Surrogate-Control": "no-store",
 }
 
 
-def _partner_html(filename: str) -> FileResponse:
-    path = _PARTNER_DIR / filename
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail=f"Partner page not found: {filename}")
-    return FileResponse(
-        path=str(path),
-        media_type="text/html; charset=utf-8",
-        headers={**_NO_CACHE_HTML, "X-Partner-UI-Version": _PARTNER_UI_VERSION},
+def _partner_url(path: str) -> str:
+    return f"{path}?v={_PARTNER_UI_VERSION}"
+
+
+def _partner_redirect(path: str) -> RedirectResponse:
+    return RedirectResponse(
+        url=_partner_url(path),
+        status_code=302,
+        headers=_NO_CACHE_HTML,
     )
 
 
-def _partner_redirect(url: str) -> RedirectResponse:
-    return RedirectResponse(
-        url=url,
-        status_code=302,
-        headers=_NO_CACHE_HTML,
+def _partner_favicon_tags() -> str:
+    href = f"/partner/favicon.png?v={_PARTNER_UI_VERSION}"
+    return (
+        f'  <link rel="icon" type="image/png" href="{href}" sizes="32x32" />\n'
+        f'  <link rel="shortcut icon" type="image/png" href="{href}" />\n'
+    )
+
+
+def _partner_html(filename: str) -> HTMLResponse:
+    """Read HTML at request time (no FileResponse ETag) and stamp UI version."""
+    path = _PARTNER_DIR / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Partner page not found: {filename}")
+    body = path.read_text(encoding="utf-8")
+    favicon = _partner_favicon_tags()
+    body, n = re.subn(r'  <link rel="(?:icon|shortcut icon)"[^>]+>\n', "", body)
+    for nav_path in (_PARTNER_ADMIN_PATH, _PARTNER_REGISTER_PATH):
+        body = body.replace(f'href="{nav_path}"', f'href="{_partner_url(nav_path)}"')
+    if "</head>" in body:
+        body = body.replace("</head>", favicon + f'  <meta name="partner-ui-version" content="{_PARTNER_UI_VERSION}" />\n</head>', 1)
+    return HTMLResponse(
+        content=body,
+        media_type="text/html; charset=utf-8",
+        headers={**_NO_CACHE_HTML, "X-Partner-UI-Version": _PARTNER_UI_VERSION},
     )
 
 
 if _PARTNER_DIR.is_dir():
 
     @app.get(_PARTNER_ADMIN_PATH, include_in_schema=False)
-    def partner_admin_page() -> FileResponse:
-        """Canonical admin URL (avoid stale CDN/Apache cache on /partner/admin.html)."""
+    def partner_admin_page() -> HTMLResponse:
         return _partner_html("admin.html")
 
+    @app.get("/partner/console", include_in_schema=False)
     @app.get("/partner/admin.html", include_in_schema=False)
     def partner_admin_page_legacy() -> RedirectResponse:
         return _partner_redirect(_PARTNER_ADMIN_PATH)
 
-    @app.get("/partner/register.html", include_in_schema=False)
-    def partner_register_page() -> FileResponse:
+    @app.get(_PARTNER_REGISTER_PATH, include_in_schema=False)
+    def partner_register_page() -> HTMLResponse:
         return _partner_html("register.html")
+
+    @app.get("/partner/join", include_in_schema=False)
+    @app.get("/partner/register.html", include_in_schema=False)
+    def partner_register_page_legacy() -> RedirectResponse:
+        return _partner_redirect(_PARTNER_REGISTER_PATH)
+
+    @app.get("/partner/favicon.png", include_in_schema=False)
+    def partner_portal_favicon() -> FileResponse:
+        path = _PARTNER_DIR / "favicon.png"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Favicon not found")
+        return FileResponse(path=str(path), media_type="image/png", headers=_NO_CACHE_HTML)
+
+    @app.get("/partner/symbol-irisid-color-m.png", include_in_schema=False)
+    def partner_portal_symbol_color_m() -> FileResponse:
+        path = _PARTNER_DIR / "symbol-irisid-color-m.png"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Symbol asset not found")
+        return FileResponse(path=str(path), media_type="image/png", headers=_NO_CACHE_HTML)
+
+    @app.get("/partner/symbol-irisid-light-color.png", include_in_schema=False)
+    def partner_portal_symbol() -> FileResponse:
+        path = _PARTNER_DIR / "symbol-irisid-light-color.png"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Symbol asset not found")
+        return FileResponse(path=str(path), media_type="image/png", headers=_NO_CACHE_HTML)
 
     @app.get("/partner/", include_in_schema=False)
     @app.get("/partner", include_in_schema=False)
@@ -153,12 +209,36 @@ app.include_router(partner_registry_router)
 
 
 @app.middleware("http")
+async def _partner_html_version_bust(request: Request, call_next):
+    """Redirect partner HTML to ?v=<version> so proxy caches miss after deploy."""
+    if request.method != "GET":
+        return await call_next(request)
+    path = request.url.path
+    if path not in _PARTNER_HTML_PATHS:
+        return await call_next(request)
+    if request.query_params.get("v") == _PARTNER_UI_VERSION:
+        return await call_next(request)
+    params = dict(request.query_params)
+    params["v"] = _PARTNER_UI_VERSION
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    return RedirectResponse(
+        url=f"{path}?{query}",
+        status_code=302,
+        headers=_NO_CACHE_HTML,
+    )
+
+
+@app.middleware("http")
 async def _no_cache_partner_api(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
-    if path.startswith("/api/partner") or path.startswith("/partner/"):
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    if path.startswith("/api/partner") or path.startswith("/partner"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        for key in ("etag", "last-modified"):
+            if key in response.headers:
+                del response.headers[key]
     return response
 
 
@@ -194,8 +274,15 @@ def health_config() -> dict[str, Any]:
         "repo_root": str(Path(__file__).resolve().parents[1]),
         ** _partner_registry_health(),
         "partner_ui_version": _PARTNER_UI_VERSION,
+        "partner_cache_bust": "query_param_v",
         "partner_admin_url": _PARTNER_ADMIN_PATH,
+        "partner_register_url": _PARTNER_REGISTER_PATH,
+        "partner_admin_marker": _partner_admin_marker(),
         "partner_admin_html": _partner_portal_file_info("admin.html"),
+        "partner_register_html": _partner_portal_file_info("register.html"),
+        "partner_register_marker": _partner_register_marker(),
+        "partner_docs_dir": str(resolve_partner_docs_path()),
+        "partner_figure_count": len(load_figure_assets()),
     }
 
 
@@ -209,6 +296,38 @@ def _partner_portal_file_info(filename: str) -> dict[str, Any] | None:
         "size_bytes": st.st_size,
         "mtime_unix": int(st.st_mtime),
     }
+
+
+def _partner_register_marker() -> str:
+    path = _PARTNER_DIR / "register.html"
+    if not path.is_file():
+        return "missing"
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if "verify-meta" in text and "otp-timer" in text and "link-back" not in text:
+        return "v11_signup_otp_timer"
+    if "Iris ID Partner Signup" in text and "select-chevron" in text:
+        return "v7_signup_ui"
+    if "UI v6" in text or "Partner Program" in text or "link-back" in text:
+        return "legacy_signup_html"
+    return "unknown"
+
+
+def _partner_admin_marker() -> str:
+    path = _PARTNER_DIR / "admin.html"
+    if not path.is_file():
+        return "missing"
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if "portal-topbar" in text and "auth-gate" in text and "symbol-irisid-color-m.png" in text:
+        return "v16_admin_portal_layout"
+    if "partner/favicon.png?v=" in text and "tbody tr:last-child td" in text:
+        return "v13_admin_favicon_borders"
+    if "data:image/png;base64," in text and "tbody tr:last-child td" in text:
+        return "v12_admin_favicon_borders"
+    if "header-symbol" in text and "confirm-modal" in text and "data-delete" in text:
+        return "v9_admin_ui"
+    if "UI v4" in text or "region-tags" in text:
+        return "v4_legacy_html_on_disk"
+    return "unknown"
 
 
 def _partner_registry_health() -> dict[str, Any]:
@@ -278,7 +397,8 @@ def partner_asset(asset_id: str, token: str = Query(default="")) -> FileResponse
     path = resolve_asset_file(asset_id)
     if path is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return FileResponse(path=str(path))
+    media_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return FileResponse(path=str(path), media_type=media_type, headers=_NO_CACHE_HTML)
 
 
 @app.post("/email/chat-transcript", response_model=EmailTranscriptResponse)

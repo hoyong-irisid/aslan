@@ -172,7 +172,7 @@ curl -s https://chat-api.irisid.com/health/config
 | 404 on `/health` | Apache 프록시 미적용 — Include 확인 |
 | Chat “Internal error” / Qdrant | `.env`의 `QDRANT_URL`, 방화벽, collection ingest |
 | `GOOGLE_API_KEY is not set` | 서버 `.env` 경로 = `~/apps/aslan/.env`, restart |
-| Partner 이미지 깨짐 | API base URL이 WP에 정확히 설정됐는지 확인 |
+| Partner admin / signup shows old UI after deploy | Apache/LiteSpeed cached GET HTML. App auto-redirects to `?v=<partner_ui_version>`. Always open pages with `?v=` in the URL; hard refresh alone may not bypass cache. |
 
 ---
 

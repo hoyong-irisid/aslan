@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ from app.partner_db import (
     consume_otp,
     create_otp_challenge,
     deactivate_partner,
+    delete_partner,
     get_partner,
     get_partner_by_email,
     insert_partner,
@@ -126,14 +128,19 @@ def list_regions() -> dict[str, Any]:
     except RuntimeError:
         return {
             "regions": [
-                {"key": "global", "label": "Global / Other", "countries": []},
+                {"key": "north_america", "label": "North America", "countries": []},
+                {"key": "south_america", "label": "South America", "countries": []},
+                {"key": "east_asia", "label": "East Asia", "countries": []},
+                {"key": "middle_east", "label": "Middle East", "countries": []},
+                {"key": "europe", "label": "Europe", "countries": []},
+                {"key": "africa", "label": "Africa", "countries": []},
             ],
-            "default_region": "global",
+            "default_region": "north_america",
         }
 
 
 @router.post("/signup/start")
-def signup_start(body: SignupStartRequest) -> dict[str, str]:
+def signup_start(body: SignupStartRequest) -> dict[str, Any]:
     settings = get_settings()
     _validate_region(body.region_key)
     try:
@@ -165,7 +172,13 @@ def signup_start(body: SignupStartRequest) -> dict[str, str]:
         send_partner_otp_email(to_email=email, otp=otp, settings=settings)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to send OTP email: {e}") from e
-    return {"status": "otp_sent", "message": "Verification code sent to your email"}
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=ttl)
+    return {
+        "status": "otp_sent",
+        "message": "Verification code sent to your email",
+        "expires_at": expires_at.replace(microsecond=0).isoformat(),
+        "ttl_minutes": ttl,
+    }
 
 
 @router.post("/signup/verify")
@@ -405,17 +418,30 @@ def admin_regenerate_code(
     return {"partner": partner}
 
 
+@router.post("/admin/partners/{partner_id}/delete")
+def admin_delete_partner_post(
+    partner_id: int,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    """Permanently remove a partner record (Apache-safe POST)."""
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    try:
+        partner = delete_partner(partner_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return {"status": "deleted", "partner": partner}
+
+
 @router.delete("/admin/partners/{partner_id}")
 def admin_delete_partner(
     partner_id: int,
     x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
-) -> dict[str, str]:
+) -> dict[str, Any]:
     settings = get_settings()
     _require_admin(x_partner_admin_key, settings)
-    if get_partner(partner_id) is None:
-        raise HTTPException(status_code=404, detail="Partner not found")
     try:
-        partner = deactivate_partner(partner_id)
+        partner = delete_partner(partner_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return {"status": "deactivated", "partner": partner}
+    return {"status": "deleted", "partner": partner}

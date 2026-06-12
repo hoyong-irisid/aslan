@@ -6,7 +6,7 @@
     },
     {
       "triggers": ["where are you", "headquarters", "office location"],
-      "answer": "IRIS ID is a global identity solutions provider. Please see the Contact page on irisid.com for office and regional details."
+      "answer": "Iris ID is a global identity solutions provider. Please see the Contact page on irisid.com for office and regional details."
     },
     {
       "triggers": ["demo", "request a demo"],

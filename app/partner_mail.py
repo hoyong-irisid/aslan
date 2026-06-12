@@ -58,14 +58,14 @@ def _send_simple_email(*, to_email: str, subject: str, text: str, settings: Sett
 
 def send_partner_otp_email(*, to_email: str, otp: str, settings: Settings) -> None:
     text = (
-        "Your IRIS ID partner verification code is:\n\n"
+        "Your verification code is:\n\n"
         f"  {otp}\n\n"
         "This code expires in 10 minutes.\n"
         "If you did not request partner access, ignore this email."
     )
     _send_simple_email(
         to_email=to_email,
-        subject="IRIS ID — Partner verification code",
+        subject="Iris ID - Verify Your Email",
         text=text,
         settings=settings,
     )
@@ -81,7 +81,7 @@ def send_partner_code_email(
     text = (
         f"Hello {name},\n\n"
         "Welcome to the IRIS ID partner program.\n\n"
-        "Your partner access code is:\n\n"
+        "Your Iris ID chatbot partner access code is:\n\n"
         f"  {code}\n\n"
         "Use this code in the Iris ID Assistant chat (Partner button) to unlock "
         "partner-only product manuals and technical content.\n\n"
@@ -90,7 +90,7 @@ def send_partner_code_email(
     )
     _send_simple_email(
         to_email=to_email,
-        subject="IRIS ID — Your partner access code",
+        subject="Iris ID - Your Partner Access Code",
         text=text,
         settings=settings,
     )

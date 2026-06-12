@@ -1,10 +1,52 @@
 {
   "regions": {
-    "middle_east": {
-      "label": "Middle East Sales",
-      "countries": ["AE", "SA", "QA", "KW", "BH", "OM"],
+    "north_america": {
+      "label": "North America",
+      "countries": ["US", "CA", "MX"],
       "sales": {
-        "name": "Example Rep",
+        "name": "North America Sales",
+        "email": "na.sales@irisid.com",
+        "phone": "+1-000-0000"
+      },
+      "support": {
+        "name": "Tech Support",
+        "email": "support@irisid.com",
+        "phone": "+1-000-0000"
+      }
+    },
+    "south_america": {
+      "label": "South America",
+      "countries": ["BR", "AR", "CL", "CO", "PE", "VE"],
+      "sales": {
+        "name": "South America Sales",
+        "email": "sa.sales@irisid.com",
+        "phone": "+1-000-0000"
+      },
+      "support": {
+        "name": "Tech Support",
+        "email": "support@irisid.com",
+        "phone": "+1-000-0000"
+      }
+    },
+    "east_asia": {
+      "label": "East Asia",
+      "countries": ["JP", "KR", "CN", "TW", "ID", "SG", "MY", "TH", "VN", "PH"],
+      "sales": {
+        "name": "East Asia Sales",
+        "email": "ea.sales@irisid.com",
+        "phone": "+65-000-0000"
+      },
+      "support": {
+        "name": "Tech Support",
+        "email": "support@irisid.com",
+        "phone": "+1-000-0000"
+      }
+    },
+    "middle_east": {
+      "label": "Middle East",
+      "countries": ["AE", "SA", "QA", "KW", "BH", "OM", "IL", "JO", "LB"],
+      "sales": {
+        "name": "Middle East Sales",
         "email": "me.sales@irisid.com",
         "phone": "+971-000-0000"
       },
@@ -14,13 +56,27 @@
         "phone": "+1-000-0000"
       }
     },
-    "east_asia": {
-      "label": "East Asia Sales",
-      "countries": ["ID", "SG", "MY", "TH", "VN", "PH"],
+    "europe": {
+      "label": "Europe",
+      "countries": ["GB", "DE", "FR", "IT", "ES", "NL", "BE", "SE", "NO", "DK", "PL", "CH", "AT"],
       "sales": {
-        "name": "Example Rep",
-        "email": "ea.sales@irisid.com",
-        "phone": "+65-000-0000"
+        "name": "Europe Sales",
+        "email": "eu.sales@irisid.com",
+        "phone": "+44-000-0000"
+      },
+      "support": {
+        "name": "Tech Support",
+        "email": "support@irisid.com",
+        "phone": "+1-000-0000"
+      }
+    },
+    "africa": {
+      "label": "Africa",
+      "countries": ["ZA", "NG", "EG", "KE", "MA", "GH"],
+      "sales": {
+        "name": "Africa Sales",
+        "email": "af.sales@irisid.com",
+        "phone": "+27-000-0000"
       },
       "support": {
         "name": "Tech Support",
@@ -29,5 +85,5 @@
       }
     }
   },
-  "default_region": "middle_east"
+  "default_region": "north_america"
 }

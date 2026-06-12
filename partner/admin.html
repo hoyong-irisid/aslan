@@ -5,50 +5,131 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
+  <link rel="icon" type="image/png" href="/partner/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <title>IRIS ID — Partner Admin</title>
   <style>
     :root {
       --iris-slate: #475569;
       --iris-dark: #1e293b;
       --iris-accent: #0ea5e9;
-      --iris-bg: #f8fafc;
+      --iris-bg: #ffffff;
       --iris-border: #e2e8f0;
+      --iris-danger: #dc2626;
+      --iris-danger-hover: #b91c1c;
+      --iris-muted: #64748b;
+      --iris-surface: #f8fafc;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 10px 25px rgba(15, 23, 42, 0.12);
+      --radius: 8px;
+      --radius-lg: 12px;
     }
     * { box-sizing: border-box; }
+    body, input, select, button {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: var(--iris-bg);
       color: var(--iris-dark);
       font-size: 14px;
+      line-height: 1.5;
     }
-    header {
-      background: var(--iris-slate);
-      color: #fff;
-      padding: 1rem 1.5rem;
+    .page-shell { max-width: 1200px; margin: 0 auto; padding: 1rem 1.25rem 1.25rem; }
+    .portal-topbar {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
+      gap: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--iris-border);
+    }
+    .portal-brand {
+      display: flex;
+      align-items: center;
       gap: 0.75rem;
+      min-width: 0;
     }
-    header h1 { margin: 0; font-size: 1.2rem; }
-    .auth-bar input {
-      padding: 0.45rem 0.6rem;
-      border-radius: 6px;
-      border: none;
-      min-width: 220px;
+    .portal-brand img {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      object-fit: contain;
     }
-    .auth-bar button {
-      padding: 0.45rem 0.85rem;
-      border: none;
-      border-radius: 6px;
-      background: #fff;
-      color: var(--iris-slate);
+    .portal-brand h1 {
+      margin: 0;
+      font-size: 1.15rem;
       font-weight: 600;
-      cursor: pointer;
+      line-height: 1.3;
     }
-    main { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
+    .portal-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+    .portal-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--iris-border);
+      background: #fff;
+      color: var(--iris-dark);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .portal-tab:hover { background: var(--iris-surface); }
+    .portal-tab.is-active {
+      background: var(--iris-slate);
+      color: #fff;
+      border-color: var(--iris-slate);
+      pointer-events: none;
+    }
+    .auth-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 45vh;
+      padding: 2rem 0 3rem;
+    }
+    .auth-gate-card {
+      width: 100%;
+      max-width: 360px;
+    }
+    .auth-gate-card p {
+      margin: 0 0 1rem;
+      text-align: center;
+      color: var(--iris-muted);
+      font-size: 0.9rem;
+    }
+    .auth-gate-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .auth-gate-form input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      background: #fff;
+    }
+    .auth-gate-form input:focus {
+      outline: 2px solid var(--iris-accent);
+      outline-offset: 0;
+      border-color: var(--iris-accent);
+    }
+    .auth-gate-form .btn { width: 100%; margin-top: 0.15rem; }
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -58,11 +139,12 @@
     .stat {
       background: #fff;
       border: 1px solid var(--iris-border);
-      border-radius: 8px;
+      border-radius: var(--radius-lg);
       padding: 1rem;
+      box-shadow: var(--shadow-sm);
     }
     .stat .n { font-size: 1.75rem; font-weight: 700; color: var(--iris-slate); }
-    .stat .l { font-size: 0.8rem; color: #64748b; margin-top: 0.2rem; }
+    .stat .l { font-size: 0.8rem; color: var(--iris-muted); margin-top: 0.2rem; }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -70,35 +152,98 @@
       margin-bottom: 1rem;
       align-items: center;
     }
-    .toolbar button, .toolbar label {
-      padding: 0.45rem 0.75rem;
-      border-radius: 6px;
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: var(--radius);
       border: 1px solid var(--iris-border);
       background: #fff;
+      color: var(--iris-dark);
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.25;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    .toolbar button.primary {
+    .btn:hover { background: var(--iris-surface); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary {
       background: var(--iris-slate);
       color: #fff;
       border-color: var(--iris-slate);
     }
+    .btn-primary:hover { background: var(--iris-dark); border-color: var(--iris-dark); }
+    .btn-secondary { background: #fff; }
+    .btn-danger {
+      background: var(--iris-danger);
+      color: #fff;
+      border-color: var(--iris-danger);
+    }
+    .btn-danger:hover { background: var(--iris-danger-hover); border-color: var(--iris-danger-hover); }
+    .btn-ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--iris-muted);
+      padding: 0.35rem 0.5rem;
+    }
+    .btn-ghost:hover { background: var(--iris-surface); color: var(--iris-dark); }
+    .btn-icon {
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: none;
+      color: var(--iris-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .btn-icon:hover { color: var(--iris-danger); }
+    .btn-icon svg { width: 1.125rem; height: 1.125rem; display: block; }
+    .btn-sm { padding: 0.3rem 0.55rem; font-size: 0.75rem; }
     table {
       width: 100%;
       border-collapse: collapse;
       background: #fff;
+      margin: 0;
+    }
+    .table-wrap {
+      overflow-x: auto;
       border: 1px solid var(--iris-border);
-      border-radius: 8px;
-      overflow: hidden;
+      border-radius: var(--radius-lg);
+      background: #fff;
+      box-shadow: var(--shadow-sm);
     }
     th, td {
-      padding: 0.55rem 0.65rem;
+      padding: 0.65rem 0.75rem;
       text-align: left;
       border-bottom: 1px solid var(--iris-border);
-      vertical-align: top;
+      vertical-align: middle;
     }
-    th { background: #f1f5f9; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
-    code { font-family: ui-monospace, monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; }
+    th {
+      background: var(--iris-surface);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--iris-muted);
+    }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover td { background: #fafbfc; }
+    code {
+      font-family: ui-monospace, monospace;
+      background: var(--iris-surface);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
     .status-pill {
       display: inline-block;
       padding: 0.2rem 0.55rem;
@@ -110,58 +255,193 @@
     }
     .status-pill.active { background: #dcfce7; color: #166534; }
     .status-pill.inactive { background: #fee2e2; color: #991b1b; }
-    .actions button {
-      font-size: 0.75rem;
-      padding: 0.25rem 0.45rem;
-      margin: 0.1rem;
-      border-radius: 4px;
-      border: 1px solid var(--iris-border);
-      background: #fff;
-      cursor: pointer;
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem;
     }
+    .actions .btn-sm { margin: 0; }
     .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(15,23,42,0.45);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 100; padding: 1rem;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1rem;
     }
     .modal {
-      background: #fff; border-radius: 10px; padding: 1.25rem;
-      width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+      background: #fff;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
     }
-    .modal h2 { margin: 0 0 1rem; font-size: 1.1rem; }
-    .modal label { display: block; font-size: 0.8rem; font-weight: 500; margin: 0.6rem 0 0.25rem; }
-    .modal input, .modal select {
-      width: 100%; padding: 0.5rem; border: 1px solid var(--iris-border); border-radius: 6px;
+    .modal-header {
+      padding: 1.1rem 1.25rem 0.75rem;
+      border-bottom: 1px solid var(--iris-border);
     }
-    .modal-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+    .modal-header h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+    .modal-body {
+      padding: 0.25rem 1.25rem 1rem;
+      overflow-y: auto;
+    }
+    .modal-footer {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      padding: 0.85rem 1.25rem 1.1rem;
+      border-top: 1px solid var(--iris-border);
+      background: var(--iris-surface);
+    }
+    .field { margin-top: 0.85rem; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--iris-dark);
+      margin-bottom: 0.35rem;
+    }
+    .field input, .field select {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      background: #fff;
+    }
+    .field input:focus, .field select:focus {
+      outline: 2px solid var(--iris-accent);
+      outline-offset: 0;
+      border-color: var(--iris-accent);
+    }
+    .select-wrap { position: relative; }
+    .select-wrap select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 2.25rem;
+    }
+    .select-chevron {
+      position: absolute;
+      right: 0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1.1rem;
+      height: 1.1rem;
+      color: var(--iris-muted);
+      pointer-events: none;
+    }
+    .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 1rem;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      background: var(--iris-surface);
+      cursor: pointer;
+      user-select: none;
+    }
+    .checkbox-field input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .checkbox-box {
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 1.5px solid #94a3b8;
+      border-radius: 4px;
+      background: #fff;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .checkbox-field input:checked + .checkbox-box {
+      background: var(--iris-slate);
+      border-color: var(--iris-slate);
+    }
+    .checkbox-field input:checked + .checkbox-box svg { opacity: 1; }
+    .checkbox-box svg {
+      width: 0.75rem;
+      height: 0.75rem;
+      color: #fff;
+      opacity: 0;
+    }
+    .checkbox-label { font-size: 0.875rem; font-weight: 500; }
+    .confirm-modal { max-width: 400px; }
+    .confirm-modal .modal-body p {
+      margin: 0;
+      color: var(--iris-muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
     .hidden { display: none !important; }
-    .msg { padding: 0.65rem; border-radius: 6px; margin-bottom: 1rem; }
-    .msg.err { background: #fef2f2; color: #dc2626; }
-    .region-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
-    .tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+    .msg {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .msg.err { background: #fef2f2; color: var(--iris-danger); border: 1px solid #fecaca; }
+    .msg.ok { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+    .col-delete {
+      width: 2rem;
+      text-align: center;
+      padding: 0.65rem 0.5rem;
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Partner Admin <span style="font-size:0.65rem;font-weight:500;opacity:0.85">UI v4</span></h1>
-    <div class="auth-bar">
-      <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
-      <button type="button" id="btn-unlock">Unlock</button>
+  <main class="page-shell">
+    <div class="portal-topbar">
+      <div class="portal-brand">
+        <img
+          src="/partner/symbol-irisid-color-m.png"
+          width="36"
+          height="36"
+          alt=""
+        />
+        <h1>Partner Admin</h1>
+      </div>
+      <nav class="portal-nav" aria-label="Partner portal">
+        <a href="/partner/signup" class="portal-tab">Partner Sign Up</a>
+      </nav>
     </div>
-  </header>
 
-  <main id="app" class="hidden">
     <div id="banner" class="msg hidden"></div>
 
-    <div class="stats" id="stats"></div>
-    <div class="region-tags" id="region-tags"></div>
-
-    <div class="toolbar">
-      <button type="button" class="primary" id="btn-add">+ Add partner</button>
-      <button type="button" id="btn-refresh">Refresh</button>
+    <div id="auth-gate" class="auth-gate">
+      <div class="auth-gate-card">
+        <p>Enter your admin API key to view and manage partners.</p>
+        <div class="auth-gate-form">
+          <input type="password" id="admin-key" placeholder="Admin API key" autocomplete="off" />
+          <button type="button" class="btn btn-primary" id="btn-unlock">Unlock</button>
+        </div>
+      </div>
     </div>
 
-    <div style="overflow-x: auto;">
+    <div id="app" class="hidden">
+    <div class="stats" id="stats"></div>
+
+    <div class="toolbar">
+      <button type="button" class="btn btn-primary" id="btn-add">+ Add partner</button>
+      <button type="button" class="btn btn-secondary" id="btn-refresh">Refresh</button>
+    </div>
+
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -175,45 +455,94 @@
             <th>Source</th>
             <th>Status</th>
             <th>Actions</th>
+            <th class="col-delete" aria-label="Delete"></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
+    </div>
   </main>
 
   <div class="modal-backdrop hidden" id="modal">
-    <div class="modal">
-      <h2 id="modal-title">Partner</h2>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Partner</h2>
+      </div>
       <form id="form-partner">
-        <input type="hidden" id="f-id" />
-        <label>Email *</label>
-        <input type="email" id="f-email" required />
-        <label>Name *</label>
-        <input type="text" id="f-name" required />
-        <label>Company *</label>
-        <input type="text" id="f-company" required />
-        <label>Phone</label>
-        <input type="tel" id="f-phone" />
-        <label>Region *</label>
-        <select id="f-region" required></select>
-        <label>Country ISO</label>
-        <input type="text" id="f-country" maxlength="2" />
-        <label id="f-active-wrap" class="hidden"><input type="checkbox" id="f-active" checked /> Active</label>
-        <div class="modal-actions">
-          <button type="button" id="btn-cancel">Cancel</button>
-          <button type="submit" class="primary">Save</button>
+        <div class="modal-body">
+          <input type="hidden" id="f-id" />
+          <div class="field">
+            <label for="f-email">Email *</label>
+            <input type="email" id="f-email" required />
+          </div>
+          <div class="field">
+            <label for="f-name">Name *</label>
+            <input type="text" id="f-name" required />
+          </div>
+          <div class="field">
+            <label for="f-company">Company *</label>
+            <input type="text" id="f-company" required />
+          </div>
+          <div class="field">
+            <label for="f-phone">Phone</label>
+            <input type="tel" id="f-phone" />
+          </div>
+          <div class="field">
+            <label for="f-region">Region *</label>
+            <div class="select-wrap">
+              <select id="f-region" required></select>
+              <svg class="select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-country">Country ISO</label>
+            <input type="text" id="f-country" maxlength="2" placeholder="e.g. US, KR" />
+          </div>
+          <label class="checkbox-field hidden" id="f-active-wrap">
+            <input type="checkbox" id="f-active" checked />
+            <span class="checkbox-box" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </span>
+            <span class="checkbox-label">Active partner account</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="confirm-modal">
+    <div class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="modal-header">
+        <h2 id="confirm-title">Confirm</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirm-ok">Confirm</button>
+      </div>
     </div>
   </div>
 
   <script>
     const API = window.location.origin;
     const KEY_STORAGE = "aslan_partner_admin_key";
+    const TRASH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`;
+
     let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
     let regions = [];
     let lastPartners = [];
+    let confirmResolve = null;
 
     function headers() {
       return { "Content-Type": "application/json", "X-Partner-Admin-Key": adminKey };
@@ -222,10 +551,38 @@
     function banner(text, err) {
       const b = document.getElementById("banner");
       b.textContent = text;
-      b.className = "msg " + (err ? "err" : "");
+      b.className = "msg " + (err ? "err" : "ok");
       b.classList.remove("hidden");
       if (!err) setTimeout(() => b.classList.add("hidden"), 4000);
     }
+
+    function regionLabel(key) {
+      return (regions.find((r) => r.key === key) || {}).label || key;
+    }
+
+    function confirmDialog({ title, message, confirmLabel = "Confirm", danger = false }) {
+      return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById("confirm-title").textContent = title;
+        document.getElementById("confirm-message").textContent = message;
+        const ok = document.getElementById("confirm-ok");
+        ok.textContent = confirmLabel;
+        ok.className = "btn " + (danger ? "btn-danger" : "btn-primary");
+        document.getElementById("confirm-modal").classList.remove("hidden");
+      });
+    }
+
+    function closeConfirm(result) {
+      document.getElementById("confirm-modal").classList.add("hidden");
+      if (confirmResolve) {
+        const fn = confirmResolve;
+        confirmResolve = null;
+        fn(result);
+      }
+    }
+
+    document.getElementById("confirm-cancel").addEventListener("click", () => closeConfirm(false));
+    document.getElementById("confirm-ok").addEventListener("click", () => closeConfirm(true));
 
     function formatApiError(data, statusText) {
       if (data.detail && typeof data.detail === "object" && !Array.isArray(data.detail)) {
@@ -272,19 +629,13 @@
         <div class="stat"><div class="n">${s.signups}</div><div class="l">Self sign-ups</div></div>
         <div class="stat"><div class="n">${s.admin_created}</div><div class="l">Admin created</div></div>
       `;
-      const tags = document.getElementById("region-tags");
-      const by = s.by_region || {};
-      tags.innerHTML = Object.entries(by).map(([k, n]) => {
-        const label = (regions.find((r) => r.key === k) || {}).label || k;
-        return `<span class="tag">${label}: ${n}</span>`;
-      }).join("");
     }
 
     function renderTable(partners) {
       lastPartners = partners.slice();
       const tb = document.getElementById("tbody");
       if (!partners.length) {
-        tb.innerHTML = '<tr><td colspan="10">No partners found</td></tr>';
+        tb.innerHTML = '<tr><td colspan="11">No partners found</td></tr>';
         return;
       }
       tb.innerHTML = partners.map((p) => {
@@ -293,7 +644,7 @@
         return `
         <tr>
           <td>${p.id}</td>
-          <td>${p.region_key}</td>
+          <td>${esc(regionLabel(p.region_key))}</td>
           <td>${esc(p.company)}</td>
           <td>${esc(p.name)}</td>
           <td>${esc(p.email)}</td>
@@ -302,11 +653,14 @@
           <td>${p.source}</td>
           <td><span class="status-pill ${status}">${status}</span></td>
           <td class="actions">
-            <button data-edit="${p.id}">Edit</button>
-            <button data-regen="${p.id}">New code</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-edit="${p.id}">Edit</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-regen="${p.id}">New code</button>
             ${active
-              ? `<button data-del="${p.id}">Deactivate</button>`
-              : `<button data-reactivate="${p.id}">Reactivate</button>`}
+              ? `<button type="button" class="btn btn-sm btn-secondary" data-del="${p.id}">Deactivate</button>`
+              : `<button type="button" class="btn btn-sm btn-secondary" data-reactivate="${p.id}">Reactivate</button>`}
+          </td>
+          <td class="col-delete">
+            <button type="button" class="btn-icon" data-delete="${p.id}" title="Delete partner" aria-label="Delete partner">${TRASH_SVG}</button>
           </td>
         </tr>
       `;
@@ -358,6 +712,7 @@
           body: JSON.stringify({ include_inactive: true }),
         });
         sessionStorage.setItem(KEY_STORAGE, adminKey);
+        document.getElementById("auth-gate").classList.add("hidden");
         document.getElementById("app").classList.remove("hidden");
         await loadRegions();
         await refresh();
@@ -374,6 +729,12 @@
     document.getElementById("btn-refresh").addEventListener("click", () => refresh().catch((e) => banner(e.message, true)));
     document.getElementById("btn-add").addEventListener("click", () => openModal("add"));
     document.getElementById("btn-cancel").addEventListener("click", closeModal);
+    document.getElementById("modal").addEventListener("click", (e) => {
+      if (e.target.id === "modal") closeModal();
+    });
+    document.getElementById("confirm-modal").addEventListener("click", (e) => {
+      if (e.target.id === "confirm-modal") closeConfirm(false);
+    });
 
     document.getElementById("form-partner").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -423,29 +784,63 @@
     });
 
     document.getElementById("tbody").addEventListener("click", async (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLButtonElement)) return;
-      const id = t.dataset.edit || t.dataset.regen || t.dataset.del || t.dataset.reactivate;
+      const delBtn = e.target.closest("[data-delete]");
+      const btn = e.target.closest("button");
+      if (!btn) return;
+
+      if (delBtn) {
+        const id = delBtn.dataset.delete;
+        const p = lastPartners.find((x) => String(x.id) === id);
+        const name = p ? `${p.name} (${p.email})` : `ID ${id}`;
+        const ok = await confirmDialog({
+          title: "Delete partner?",
+          message: `Permanently delete ${name}? This cannot be undone and their access code will stop working.`,
+          confirmLabel: "Delete",
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await api("/api/partner/admin/partners/" + id + "/delete", { method: "POST" });
+          await refresh();
+          banner("Partner deleted", false);
+        } catch (err) {
+          banner(err.message, true);
+        }
+        return;
+      }
+
+      const id = btn.dataset.edit || btn.dataset.regen || btn.dataset.del || btn.dataset.reactivate;
       if (!id) return;
       try {
-        if (t.dataset.edit) {
+        if (btn.dataset.edit) {
           let p = lastPartners.find((x) => String(x.id) === id);
           if (!p) {
             await refresh();
             p = lastPartners.find((x) => String(x.id) === id);
           }
           if (p) openModal("edit", p);
-        } else if (t.dataset.regen) {
-          if (!confirm("Generate a new access code and email it to the partner?")) return;
+        } else if (btn.dataset.regen) {
+          const ok = await confirmDialog({
+            title: "Generate new code?",
+            message: "A new access code will be created and emailed to the partner.",
+            confirmLabel: "Send new code",
+          });
+          if (!ok) return;
           await api("/api/partner/admin/partners/" + id + "/regenerate-code?send_email=true", { method: "POST" });
           await refresh();
           banner("New code sent", false);
-        } else if (t.dataset.reactivate) {
+        } else if (btn.dataset.reactivate) {
           await api("/api/partner/admin/partners/" + id + "/activate", { method: "POST" });
           await refresh();
           banner("Partner reactivated", false);
-        } else if (t.dataset.del) {
-          if (!confirm("Deactivate this partner? Their code will stop working.")) return;
+        } else if (btn.dataset.del) {
+          const ok = await confirmDialog({
+            title: "Deactivate partner?",
+            message: "Their access code will stop working until reactivated.",
+            confirmLabel: "Deactivate",
+            danger: true,
+          });
+          if (!ok) return;
           await api("/api/partner/admin/partners/" + id + "/deactivate", { method: "POST" });
           await refresh();
           banner("Partner deactivated", false);
