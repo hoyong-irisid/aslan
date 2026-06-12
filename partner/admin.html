@@ -204,6 +204,16 @@
     }
     .btn-primary:hover { background: var(--iris-dark); border-color: var(--iris-dark); }
     .btn-secondary { background: #fff; }
+    .btn-danger-soft {
+      background: #fef2f2;
+      color: var(--iris-danger);
+      border-color: #fecaca;
+    }
+    .btn-danger-soft:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: var(--iris-danger-hover);
+    }
     .btn-danger {
       background: var(--iris-danger);
       color: #fff;
@@ -757,7 +767,7 @@
                 ${active
                   ? `<button type="button" class="btn btn-sm btn-secondary" data-del="${p.id}">Deactivate</button>`
                   : `<button type="button" class="btn btn-sm btn-secondary" data-reactivate="${p.id}">Reactivate</button>`}
-                <button type="button" class="btn btn-sm btn-danger" data-delete="${p.id}">Delete</button>
+                <button type="button" class="btn btn-sm btn-danger-soft" data-delete="${p.id}">Delete</button>
               </div>
             </div>
           </td>
