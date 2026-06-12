@@ -256,13 +256,84 @@
     }
     .status-pill.active { background: #dcfce7; color: #166534; }
     .status-pill.inactive { background: #fee2e2; color: #991b1b; }
-    .actions {
+    .col-toggle {
+      width: 2.75rem;
+      text-align: center;
+      padding: 0.65rem 0.5rem;
+      vertical-align: middle;
+    }
+    .btn-chevron {
+      padding: 0.25rem;
+      margin: 0;
+      border: none;
+      background: none;
+      color: var(--iris-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .btn-chevron:hover { color: var(--iris-dark); background: var(--iris-surface); }
+    .btn-chevron svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      display: block;
+      transition: transform 0.2s ease;
+    }
+    .partner-row.is-expanded .btn-chevron svg { transform: rotate(180deg); }
+    tr.partner-detail td {
+      padding: 0;
+      background: var(--iris-surface);
+      border-bottom: 1px solid var(--iris-border);
+    }
+    tr.partner-detail:last-child td { border-bottom: none; }
+    .accordion-panel { padding: 0.85rem 1rem 1rem 1.75rem; }
+    .accordion-note { margin-bottom: 0.85rem; }
+    .accordion-note label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--iris-muted);
+      margin-bottom: 0.35rem;
+    }
+    .accordion-note textarea {
+      width: 100%;
+      min-height: 4.5rem;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-family: inherit;
+      line-height: 1.45;
+      resize: vertical;
+      background: #fff;
+    }
+    .accordion-note textarea:focus {
+      outline: 2px solid var(--iris-accent);
+      outline-offset: 0;
+      border-color: var(--iris-accent);
+    }
+    .accordion-actions {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.25rem;
+      gap: 0.35rem;
     }
-    .actions .btn-sm { margin: 0; }
+    .accordion-actions .btn-sm { margin: 0; }
+    .accordion-actions .btn-icon {
+      padding: 0.3rem 0.45rem;
+      border: 1px solid var(--iris-border);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+    .accordion-actions .btn-icon:hover {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -397,12 +468,6 @@
     }
     .msg.err { background: #fef2f2; color: var(--iris-danger); border: 1px solid #fecaca; }
     .msg.ok { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
-    .col-delete {
-      width: 2rem;
-      text-align: center;
-      padding: 0.65rem 0.5rem;
-      vertical-align: middle;
-    }
   </style>
 </head>
 <body>
@@ -455,8 +520,7 @@
             <th>Code</th>
             <th>Source</th>
             <th>Status</th>
-            <th>Actions</th>
-            <th class="col-delete" aria-label="Delete"></th>
+            <th class="col-toggle" aria-label="Expand"></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -535,6 +599,7 @@
     const API = window.location.origin;
     const KEY_STORAGE = "aslan_partner_admin_key";
     const TRASH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`;
+    const CHEVRON_DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>`;
 
     let adminKey = sessionStorage.getItem(KEY_STORAGE) || "";
     let countries = [];
@@ -636,15 +701,19 @@
     function renderTable(partners) {
       lastPartners = partners.slice();
       const tb = document.getElementById("tbody");
+      const expandedIds = [...document.querySelectorAll("tr.partner-detail:not(.hidden)")].map(
+        (tr) => tr.dataset.detailFor
+      );
       if (!partners.length) {
-        tb.innerHTML = '<tr><td colspan="11">No partners found</td></tr>';
+        tb.innerHTML = '<tr><td colspan="10">No partners found</td></tr>';
         return;
       }
       tb.innerHTML = partners.map((p) => {
         const active = partnerIsActive(p);
         const status = active ? "active" : "inactive";
+        const noteVal = p.note || "";
         return `
-        <tr>
+        <tr class="partner-row" data-id="${p.id}">
           <td>${p.id}</td>
           <td>${esc(partnerCountry(p))}</td>
           <td>${esc(p.company)}</td>
@@ -654,19 +723,39 @@
           <td><code>${esc(p.code)}</code></td>
           <td>${p.source}</td>
           <td><span class="status-pill ${status}">${status}</span></td>
-          <td class="actions">
-            <button type="button" class="btn btn-sm btn-secondary" data-edit="${p.id}">Edit</button>
-            <button type="button" class="btn btn-sm btn-secondary" data-regen="${p.id}">New code</button>
-            ${active
-              ? `<button type="button" class="btn btn-sm btn-secondary" data-del="${p.id}">Deactivate</button>`
-              : `<button type="button" class="btn btn-sm btn-secondary" data-reactivate="${p.id}">Reactivate</button>`}
+          <td class="col-toggle">
+            <button type="button" class="btn-chevron" data-toggle="${p.id}" aria-expanded="false" aria-label="Show actions for ${esc(p.name)}">${CHEVRON_DOWN_SVG}</button>
           </td>
-          <td class="col-delete">
-            <button type="button" class="btn-icon" data-delete="${p.id}" title="Delete partner" aria-label="Delete partner">${TRASH_SVG}</button>
+        </tr>
+        <tr class="partner-detail hidden" data-detail-for="${p.id}">
+          <td colspan="10">
+            <div class="accordion-panel">
+              <div class="accordion-note">
+                <label for="note-${p.id}">Note</label>
+                <textarea id="note-${p.id}" data-note="${p.id}" data-saved="${esc(noteVal)}" placeholder="Internal memo…">${esc(noteVal)}</textarea>
+              </div>
+              <div class="accordion-actions">
+                <button type="button" class="btn btn-sm btn-secondary" data-edit="${p.id}">Edit</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-regen="${p.id}">New code</button>
+                ${active
+                  ? `<button type="button" class="btn btn-sm btn-secondary" data-del="${p.id}">Deactivate</button>`
+                  : `<button type="button" class="btn btn-sm btn-secondary" data-reactivate="${p.id}">Reactivate</button>`}
+                <button type="button" class="btn-icon" data-delete="${p.id}" title="Delete partner" aria-label="Delete partner">${TRASH_SVG}</button>
+              </div>
+            </div>
           </td>
         </tr>
       `;
       }).join("");
+      for (const id of expandedIds) {
+        const detail = tb.querySelector(`tr.partner-detail[data-detail-for="${id}"]`);
+        const row = tb.querySelector(`tr.partner-row[data-id="${id}"]`);
+        const btn = tb.querySelector(`[data-toggle="${id}"]`);
+        if (!detail) continue;
+        detail.classList.remove("hidden");
+        row?.classList.add("is-expanded");
+        btn?.setAttribute("aria-expanded", "true");
+      }
     }
 
     function esc(s) {
@@ -791,6 +880,19 @@
     });
 
     document.getElementById("tbody").addEventListener("click", async (e) => {
+      const toggleBtn = e.target.closest("[data-toggle]");
+      if (toggleBtn) {
+        const id = toggleBtn.dataset.toggle;
+        const detail = document.querySelector(`tr.partner-detail[data-detail-for="${id}"]`);
+        const row = document.querySelector(`tr.partner-row[data-id="${id}"]`);
+        if (!detail) return;
+        const opening = detail.classList.contains("hidden");
+        detail.classList.toggle("hidden", !opening);
+        toggleBtn.setAttribute("aria-expanded", String(opening));
+        row?.classList.toggle("is-expanded", opening);
+        return;
+      }
+
       const delBtn = e.target.closest("[data-delete]");
       const btn = e.target.closest("button");
       if (!btn) return;
@@ -856,6 +958,30 @@
         banner(err.message, true);
       }
     });
+
+    document.getElementById("tbody").addEventListener(
+      "blur",
+      async (e) => {
+        const ta = e.target.closest("[data-note]");
+        if (!ta || !ta.matches("textarea")) return;
+        const id = ta.dataset.note;
+        const saved = ta.dataset.saved || "";
+        const value = ta.value;
+        if (value === saved) return;
+        try {
+          await api("/api/partner/admin/partners/" + id + "/update", {
+            method: "POST",
+            body: JSON.stringify({ note: value.trim() || null }),
+          });
+          ta.dataset.saved = value;
+          const p = lastPartners.find((x) => String(x.id) === String(id));
+          if (p) p.note = value.trim() || null;
+        } catch (err) {
+          banner(err.message || "Failed to save note", true);
+        }
+      },
+      true
+    );
   </script>
 </body>
 </html>
