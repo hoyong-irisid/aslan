@@ -117,7 +117,7 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v51"
+_PARTNER_UI_VERSION = "2026-06-11-v52"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
 _PARTNER_SETTINGS_PATH = "/partner/settings"

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ASLAN Chat Widget
  * Description: IRIS ID floating chat widget (bottom-right). Connects to the ASLAN FastAPI backend.
- * Version: 0.1.9
+ * Version: 0.2.0
  * Author: IRIS ID
  * Text Domain: aslan-chat-widget
  */
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ASLAN_WIDGET_VERSION', '0.1.9');
+define('ASLAN_WIDGET_VERSION', '0.2.0');
 define('ASLAN_WIDGET_FILE', __FILE__);
 define('ASLAN_WIDGET_DIR', plugin_dir_path(__FILE__));
 define('ASLAN_WIDGET_URL', plugin_dir_url(__FILE__));
@@ -105,6 +105,38 @@ function aslan_widget_public_api_base(): string
     return rtrim(aslan_widget_get_option('api_base_url'), '/');
 }
 
+/**
+ * Best-effort visitor IP for geolocation when proxying to internal FastAPI.
+ */
+function aslan_widget_request_client_ip(): string
+{
+    $candidates = [];
+
+    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        $candidates[] = (string) wp_unslash($_SERVER['HTTP_CF_CONNECTING_IP']);
+    }
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        foreach (explode(',', (string) wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR'])) as $part) {
+            $candidates[] = trim($part);
+        }
+    }
+    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+        $candidates[] = (string) wp_unslash($_SERVER['HTTP_X_REAL_IP']);
+    }
+    if (!empty($_SERVER['REMOTE_ADDR'])) {
+        $candidates[] = (string) wp_unslash($_SERVER['REMOTE_ADDR']);
+    }
+
+    foreach ($candidates as $candidate) {
+        $ip = sanitize_text_field($candidate);
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
+    }
+
+    return '';
+}
+
 function aslan_widget_proxy_json(string $method, string $path, ?string $json_body = null, array $query = []): WP_REST_Response
 {
     $url = aslan_widget_internal_api_base() . $path;
@@ -112,10 +144,17 @@ function aslan_widget_proxy_json(string $method, string $path, ?string $json_bod
         $url = add_query_arg($query, $url);
     }
 
+    $headers = ['Content-Type' => 'application/json'];
+    $client_ip = aslan_widget_request_client_ip();
+    if ($client_ip !== '') {
+        $headers['X-Real-IP'] = $client_ip;
+        $headers['X-Forwarded-For'] = $client_ip;
+    }
+
     $args = [
         'method' => $method,
         'timeout' => 120,
-        'headers' => ['Content-Type' => 'application/json'],
+        'headers' => $headers,
     ];
     if ($json_body !== null) {
         $args['body'] = $json_body;
