@@ -20,6 +20,12 @@ from app.countries import (
     region_key_for_country_iso,
     resolve_country_name,
 )
+from app.partner_domains import (
+    domains_to_text,
+    get_signup_domain_rules,
+    save_signup_domain_rules,
+    validate_signup_email_domain,
+)
 from app.partner_db import (
     activate_partner,
     admin_dashboard_data,
@@ -66,6 +72,11 @@ class AdminPartnerCreate(BaseModel):
 
 class AdminDashboardRequest(BaseModel):
     include_inactive: bool = True
+
+
+class AdminDomainSettingsUpdate(BaseModel):
+    allowed_domains_text: str = ""
+    blocked_domains_text: str = ""
 
 
 class AdminPartnerUpdate(BaseModel):
@@ -162,12 +173,29 @@ def _resolve_signup_country(country: str) -> tuple[str, str, str]:
     return iso, country_name, region_key
 
 
+@router.get("/signup/domain-rules")
+def signup_domain_rules() -> dict[str, Any]:
+    rules = get_signup_domain_rules()
+    allowed = rules["allowed_domains"]
+    hint = ""
+    if allowed:
+        hint = f"Registration is limited to approved partner email domains ({', '.join(allowed)})."
+    return {
+        "allowed_domains": allowed,
+        "hint": hint,
+    }
+
+
 @router.post("/signup/start")
 def signup_start(body: SignupStartRequest) -> dict[str, Any]:
     settings = get_settings()
     iso, country_name, region_key = _resolve_signup_country(body.country)
     try:
         email = normalize_email(body.email)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        validate_signup_email_domain(email)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -210,6 +238,10 @@ def signup_verify(body: SignupVerifyRequest) -> dict[str, Any]:
     settings = get_settings()
     try:
         email = normalize_email(body.email)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        validate_signup_email_domain(email)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -476,3 +508,40 @@ def admin_delete_partner(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return {"status": "deleted", "partner": partner}
+
+
+@router.get("/admin/settings/domains")
+def admin_get_domain_settings(
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    rules = get_signup_domain_rules()
+    return {
+        "allowed_domains": rules["allowed_domains"],
+        "blocked_domains": rules["blocked_domains"],
+        "allowed_domains_text": domains_to_text(rules["allowed_domains"]),
+        "blocked_domains_text": domains_to_text(rules["blocked_domains"]),
+    }
+
+
+@router.post("/admin/settings/domains")
+def admin_save_domain_settings(
+    body: AdminDomainSettingsUpdate,
+    x_partner_admin_key: str | None = Header(default=None, alias="X-Partner-Admin-Key"),
+) -> dict[str, Any]:
+    settings = get_settings()
+    _require_admin(x_partner_admin_key, settings)
+    from app.partner_domains import parse_domain_list
+
+    saved = save_signup_domain_rules(
+        allowed_domains=parse_domain_list(body.allowed_domains_text),
+        blocked_domains=parse_domain_list(body.blocked_domains_text),
+    )
+    return {
+        "status": "saved",
+        "allowed_domains": saved["allowed_domains"],
+        "blocked_domains": saved["blocked_domains"],
+        "allowed_domains_text": domains_to_text(saved["allowed_domains"]),
+        "blocked_domains_text": domains_to_text(saved["blocked_domains"]),
+    }

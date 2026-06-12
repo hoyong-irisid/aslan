@@ -103,13 +103,14 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v24"
+_PARTNER_UI_VERSION = "2026-06-11-v25"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
+_PARTNER_SETTINGS_PATH = "/partner/settings"
 # Canonical HTML pages — middleware redirects to ?v=<version> so Apache/LiteSpeed
 # cannot serve a stale cached copy after deploy (hard refresh often still hits cache).
 _PARTNER_HTML_PATHS = frozenset(
-    {"/partner/manage", "/partner/signup", "/partner", "/partner/"}
+    {"/partner/manage", "/partner/signup", "/partner/settings", "/partner", "/partner/"}
 )
 _NO_CACHE_HTML = {
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, private",
@@ -148,7 +149,7 @@ def _partner_html(filename: str) -> HTMLResponse:
     body = path.read_text(encoding="utf-8")
     favicon = _partner_favicon_tags()
     body, n = re.subn(r'  <link rel="(?:icon|shortcut icon)"[^>]+>\n', "", body)
-    for nav_path in (_PARTNER_ADMIN_PATH, _PARTNER_REGISTER_PATH):
+    for nav_path in (_PARTNER_ADMIN_PATH, _PARTNER_REGISTER_PATH, _PARTNER_SETTINGS_PATH):
         body = body.replace(f'href="{nav_path}"', f'href="{_partner_url(nav_path)}"')
     if "</head>" in body:
         body = body.replace("</head>", favicon + f'  <meta name="partner-ui-version" content="{_PARTNER_UI_VERSION}" />\n</head>', 1)
@@ -173,6 +174,10 @@ if _PARTNER_DIR.is_dir():
     @app.get(_PARTNER_REGISTER_PATH, include_in_schema=False)
     def partner_register_page() -> HTMLResponse:
         return _partner_html("register.html")
+
+    @app.get(_PARTNER_SETTINGS_PATH, include_in_schema=False)
+    def partner_settings_page() -> HTMLResponse:
+        return _partner_html("settings.html")
 
     @app.get("/partner/join", include_in_schema=False)
     @app.get("/partner/register.html", include_in_schema=False)

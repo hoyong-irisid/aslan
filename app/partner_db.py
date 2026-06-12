@@ -79,6 +79,12 @@ def init_db() -> None:
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_challenges(email);
+
+            CREATE TABLE IF NOT EXISTS partner_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
         cols = {row[1] for row in con.execute("PRAGMA table_info(partners)")}
@@ -86,6 +92,30 @@ def init_db() -> None:
             con.execute("ALTER TABLE partners ADD COLUMN country TEXT")
         if "note" not in cols:
             con.execute("ALTER TABLE partners ADD COLUMN note TEXT")
+
+
+def get_partner_setting(key: str, default: str = "") -> str:
+    with _conn() as con:
+        row = con.execute(
+            "SELECT value FROM partner_settings WHERE key = ? LIMIT 1",
+            (key,),
+        ).fetchone()
+    if not row:
+        return default
+    return str(row["value"])
+
+
+def set_partner_setting(key: str, value: str) -> None:
+    now = _utc_now()
+    with _conn() as con:
+        con.execute(
+            """
+            INSERT INTO partner_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            """,
+            (key, value, now),
+        )
 
 
 def normalize_email(email: str) -> str:

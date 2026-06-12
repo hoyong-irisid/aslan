@@ -265,6 +265,7 @@
       <form id="form-signup">
         <label for="email">Email *</label>
         <input type="email" id="email" name="email" required autocomplete="email" />
+        <p class="hint" id="domain-hint">Loading approved email domains…</p>
 
         <label for="name">Full name *</label>
         <input type="text" id="name" name="name" required autocomplete="name" />
@@ -434,6 +435,31 @@
       otpTimerId = setInterval(updateOtpTimerUi, 1000);
     }
 
+    async function loadDomainRules() {
+      const hint = document.getElementById("domain-hint");
+      try {
+        const r = await fetch(API + "/api/partner/signup/domain-rules");
+        const data = await r.json();
+        if (data.hint) {
+          hint.textContent = data.hint;
+        } else if ((data.allowed_domains || []).length) {
+          hint.textContent = `Registration is limited to approved partner email domains (${data.allowed_domains.join(", ")}).`;
+        } else {
+          hint.textContent = "Partner registration requires an approved company email domain.";
+        }
+      } catch (e) {
+        hint.textContent = "Partner registration requires an approved company email domain.";
+      }
+    }
+
+    function formatApiDetail(data, statusText) {
+      if (typeof data.detail === "string") return data.detail;
+      if (Array.isArray(data.detail)) {
+        return data.detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
+      }
+      return statusText;
+    }
+
     async function sendVerificationCode(body) {
       const r = await fetch(API + "/api/partner/signup/start", {
         method: "POST",
@@ -441,7 +467,7 @@
         body: JSON.stringify(body),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.detail || r.statusText);
+      if (!r.ok) throw new Error(formatApiDetail(data, r.statusText));
       return data;
     }
 
@@ -550,6 +576,7 @@
     });
 
     loadCountries();
+    loadDomainRules();
   </script>
 </body>
 </html>
