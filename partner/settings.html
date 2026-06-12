@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <title>IRIS ID — Partner Settings</title>
+  <title>IRIS ID — Partner Admin: Settings</title>
   <style>
     :root {
       --iris-slate: #475569;
@@ -122,6 +122,20 @@
       padding: 0.75rem;
       box-shadow: var(--shadow-sm);
     }
+    .settings-nav-back {
+      display: block;
+      padding: 0.45rem 0.65rem;
+      margin-bottom: 0.75rem;
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--iris-muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .settings-nav-back:hover {
+      color: var(--iris-dark);
+      background: var(--iris-surface);
+    }
     .settings-nav h2 {
       margin: 0 0 0.65rem;
       padding: 0 0.35rem;
@@ -215,10 +229,9 @@
     <div class="portal-topbar">
       <div class="portal-brand">
         <img src="/partner/symbol-irisid-color-m.png" width="36" height="36" alt="" />
-        <h1>Partner Settings</h1>
+        <h1>Partner Admin: Settings</h1>
       </div>
       <nav class="portal-nav" aria-label="Partner portal">
-        <a href="/partner/manage" class="portal-tab">Partners</a>
         <a href="/partner/settings" class="portal-tab portal-tab-icon is-active" title="Settings" aria-label="Settings">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.431l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.298-2.247a1.125 1.125 0 01.26-1.431l1.003-.827c.293-.24.438-.613.431-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.005-.828a1.125 1.125 0 01-.26-1.431L4.645 8.088a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
@@ -244,6 +257,7 @@
     <div id="app" class="hidden">
       <div class="settings-shell">
         <aside class="settings-nav" aria-label="Settings menu">
+          <a href="/partner/manage" class="settings-nav-back">&lt; Back to Partners</a>
           <h2>Settings</h2>
           <a href="#domains" class="settings-nav-item is-active">Domains</a>
         </aside>
@@ -251,14 +265,14 @@
           <h2>Domains</h2>
           <form id="form-domains">
             <div class="field">
-              <label for="blocked-domains">허용하지 않는 도메인</label>
+              <label for="blocked-domains">Blocked domains</label>
               <textarea id="blocked-domains" placeholder="@xxx.com"></textarea>
-              <p class="hint">이 도메인의 이메일은 파트너 가입이 차단됩니다.</p>
+              <p class="hint">Emails from these domains cannot sign up for partner access.</p>
             </div>
             <div class="field">
-              <label for="allowed-domains">파트너 도메인</label>
+              <label for="allowed-domains">Partner domains</label>
               <textarea id="allowed-domains" placeholder="@xxx.com"></textarea>
-              <p class="hint">가입 가능한 파트너 이메일 도메인입니다. 한 줄에 하나씩 입력하세요.</p>
+              <p class="hint">Only emails matching these domains may register. Enter one domain per line.</p>
             </div>
             <button type="submit" class="btn" id="btn-save">Save</button>
           </form>
