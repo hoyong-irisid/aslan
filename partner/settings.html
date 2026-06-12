@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <title>IRIS ID — Partner Admin: Settings</title>
+  <title>IRIS ID — Partner Admin &gt; Settings</title>
   <style>
     :root {
       --iris-slate: #475569;
@@ -53,34 +53,10 @@
     }
     .portal-brand img { width: 36px; height: 36px; object-fit: contain; }
     .portal-brand h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
-    .portal-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-left: auto;
-    }
-    .portal-tab {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.45rem 0.85rem;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      text-decoration: none;
-      border: 1px solid var(--iris-border);
-      background: #fff;
-      color: var(--iris-dark);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-      white-space: nowrap;
-    }
-    .portal-tab:hover { background: var(--iris-surface); }
-    .portal-tab-icon { padding: 0.45rem 0.55rem; }
-    .portal-tab-icon svg { width: 1.1rem; height: 1.1rem; display: block; }
-    .portal-tab.is-active {
-      background: var(--iris-slate);
-      color: #fff;
-      border-color: var(--iris-slate);
+    .portal-brand h1 .title-sep {
+      color: var(--iris-muted);
+      font-weight: 400;
+      margin: 0 0.25rem;
     }
     .auth-gate {
       display: flex;
@@ -116,21 +92,24 @@
       .settings-shell { grid-template-columns: 1fr; }
     }
     .settings-nav {
-      background: #fff;
-      border: 1px solid var(--iris-border);
-      border-radius: var(--radius-lg);
-      padding: 0.75rem;
-      box-shadow: var(--shadow-sm);
+      padding: 0.25rem 0.75rem 0.75rem 0;
     }
     .settings-nav-back {
-      display: block;
-      padding: 0.45rem 0.65rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.35rem;
       margin-bottom: 0.75rem;
       border-radius: 6px;
       text-decoration: none;
       color: var(--iris-muted);
       font-size: 0.8rem;
       font-weight: 500;
+    }
+    .settings-nav-back svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
     }
     .settings-nav-back:hover {
       color: var(--iris-dark);
@@ -229,17 +208,8 @@
     <div class="portal-topbar">
       <div class="portal-brand">
         <img src="/partner/symbol-irisid-color-m.png" width="36" height="36" alt="" />
-        <h1>Partner Admin: Settings</h1>
+        <h1>Partner Admin <span class="title-sep">&gt;</span> Settings</h1>
       </div>
-      <nav class="portal-nav" aria-label="Partner portal">
-        <a href="/partner/settings" class="portal-tab portal-tab-icon is-active" title="Settings" aria-label="Settings">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.431l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.298-2.247a1.125 1.125 0 01.26-1.431l1.003-.827c.293-.24.438-.613.431-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.005-.828a1.125 1.125 0 01-.26-1.431L4.645 8.088a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </a>
-        <a href="/partner/signup" class="portal-tab">Partner Sign Up</a>
-      </nav>
     </div>
 
     <div id="banner" class="msg hidden"></div>
@@ -257,7 +227,12 @@
     <div id="app" class="hidden">
       <div class="settings-shell">
         <aside class="settings-nav" aria-label="Settings menu">
-          <a href="/partner/manage" class="settings-nav-back">&lt; Back to Partners</a>
+          <a href="/partner/manage" class="settings-nav-back">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Partners
+          </a>
           <h2>Settings</h2>
           <a href="#domains" class="settings-nav-item is-active">Domains</a>
         </aside>
