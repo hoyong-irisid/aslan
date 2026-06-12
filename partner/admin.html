@@ -114,6 +114,19 @@
       border-color: var(--iris-slate);
       pointer-events: none;
     }
+    button.portal-tab {
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button.portal-tab-primary {
+      background: var(--iris-slate);
+      color: #fff;
+      border-color: var(--iris-slate);
+    }
+    button.portal-tab-primary:hover {
+      background: var(--iris-dark);
+      border-color: var(--iris-dark);
+    }
     .auth-gate {
       display: flex;
       flex-direction: column;
@@ -166,14 +179,6 @@
     }
     .stat .n { font-size: 1.75rem; font-weight: 700; color: var(--iris-slate); }
     .stat .l { font-size: 0.8rem; color: var(--iris-muted); margin-top: 0.2rem; }
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-      align-items: center;
-      justify-content: flex-end;
-    }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -504,13 +509,14 @@
         <h1>Partner Admin</h1>
       </div>
       <nav class="portal-nav" aria-label="Partner portal">
+        <a href="/partner/signup" class="portal-tab">Partner Sign Up</a>
+        <button type="button" class="portal-tab portal-tab-primary hidden" id="btn-add">+ Add partner</button>
         <a href="/partner/settings" class="portal-tab portal-tab-icon" title="Settings" aria-label="Settings">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/>
             <circle cx="12" cy="12" r="3"/>
           </svg>
         </a>
-        <a href="/partner/signup" class="portal-tab">Partner Sign Up</a>
       </nav>
     </div>
 
@@ -528,10 +534,6 @@
 
     <div id="app" class="hidden">
     <div class="stats" id="stats"></div>
-
-    <div class="toolbar">
-      <button type="button" class="btn btn-primary" id="btn-add">+ Add partner</button>
-    </div>
 
     <div class="table-wrap">
       <table>
@@ -837,6 +839,7 @@
         sessionStorage.setItem(KEY_STORAGE, adminKey);
         document.getElementById("auth-gate").classList.add("hidden");
         document.getElementById("app").classList.remove("hidden");
+        document.getElementById("btn-add").classList.remove("hidden");
         await loadCountries();
         await refresh();
       } catch (e) {
