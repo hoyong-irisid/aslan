@@ -103,7 +103,7 @@ app.mount(
 )
 
 _PARTNER_DIR = Path(__file__).resolve().parents[1] / "partner"
-_PARTNER_UI_VERSION = "2026-06-11-v23"
+_PARTNER_UI_VERSION = "2026-06-11-v24"
 _PARTNER_ADMIN_PATH = "/partner/manage"
 _PARTNER_REGISTER_PATH = "/partner/signup"
 # Canonical HTML pages — middleware redirects to ?v=<version> so Apache/LiteSpeed
@@ -317,6 +317,8 @@ def _partner_admin_marker() -> str:
     if not path.is_file():
         return "missing"
     text = path.read_text(encoding="utf-8", errors="replace")
+    if "partner-detail" in text and "btn-chevron" in text and "accordion-panel" in text:
+        return "v24_admin_accordion"
     if "portal-topbar" in text and "auth-gate" in text and "symbol-irisid-color-m.png" in text:
         return "v16_admin_portal_layout"
     if "partner/favicon.png?v=" in text and "tbody tr:last-child td" in text:

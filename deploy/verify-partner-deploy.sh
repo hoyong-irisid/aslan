@@ -8,6 +8,7 @@ cd "$APP"
 echo "=== Disk files ==="
 DISK_VER=$(grep -m1 '_PARTNER_UI_VERSION' app/main.py | sed 's/.*"\([^"]*\)".*/\1/')
 echo "  main.py partner_ui_version: ${DISK_VER}"
+grep -q "partner-detail" partner/admin.html && grep -q "btn-chevron" partner/admin.html && echo "  admin.html accordion: OK" || { echo "  admin.html accordion: MISSING — git pull origin main"; exit 1; }
 grep -q "portal-topbar" partner/admin.html && echo "  admin.html layout: OK (portal-topbar)" || { echo "  admin.html layout: OLD — re-upload zip and unzip in ~/apps/aslan"; exit 1; }
 grep -q "auth-gate" partner/admin.html && echo "  admin.html auth-gate: OK" || { echo "  admin.html auth-gate: MISSING"; exit 1; }
 grep -q "symbol-irisid-color-m.png" partner/admin.html && echo "  admin.html symbol: OK" || { echo "  admin.html symbol: MISSING"; exit 1; }
@@ -37,10 +38,20 @@ if [ "$API_VER" != "$DISK_VER" ]; then
   exit 1
 fi
 
-if [ "$MARKER" != "v16_admin_portal_layout" ]; then
+if [ "$MARKER" != "v24_admin_accordion" ] && [ "$MARKER" != "v16_admin_portal_layout" ]; then
   echo ""
-  echo "  *** admin.html on disk is not v16 layout (marker=${MARKER}) ***"
-  echo "    cd ~/apps/aslan && unzip -o ~/apps/aslan-deploy.zip"
+  echo "  *** admin.html layout mismatch (marker=${MARKER}, expected v24_admin_accordion) ***"
+  echo "    cd ~/apps/aslan && git pull origin main && restart uvicorn"
+  exit 1
+fi
+
+if [ "$MARKER" = "v24_admin_accordion" ]; then
+  echo "  admin.html accordion marker: OK"
+fi
+
+if [ "$MARKER" = "v16_admin_portal_layout" ]; then
+  echo ""
+  echo "  *** admin.html is v16 layout — pull latest for accordion UI (v24) ***"
   exit 1
 fi
 
@@ -51,6 +62,13 @@ if [ "$CODE" != "200" ]; then
   exit 1
 fi
 echo "  served admin HTML: OK (${ADMIN_URL})"
+
+if grep -q "partner-detail" /tmp/aslan-partner-check.html && grep -q "btn-chevron" /tmp/aslan-partner-check.html; then
+  echo "  served admin accordion: OK"
+else
+  echo "  served admin accordion: MISSING — git pull and restart uvicorn"
+  exit 1
+fi
 
 if grep -q "portal-topbar" /tmp/aslan-partner-check.html && grep -q "auth-gate" /tmp/aslan-partner-check.html; then
   echo "  served admin layout: OK (portal-topbar + auth-gate)"
